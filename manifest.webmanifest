@@ -1,0 +1,10 @@
+{
+  "name": "Buddy Race — বাডি রেস",
+  "short_name": "বাডি রেস",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#8fd3ff",
+  "theme_color": "#f7b733"
+}

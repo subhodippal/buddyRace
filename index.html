@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7b733" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Buddy Race</title>
+  <meta name="description" content="A funny 3D running and fighting race of five hostel friends through campus, Kolkata streets, markets, villages and over the river — single player or multiplayer." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;700;800&family=Noto+Sans+Bengali:wght@600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="speedFx"></div>
+  <!-- floating labels (names + health, speech bubbles, hit words) -->
+  <div id="labels"></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="progress"><div id="progressTrack"></div><div id="progressFlag">🏁</div></div>
+    <div id="topRow">
+      <div id="rank">1<sup>st</sup></div>
+      <div id="dist">0 m</div>
+      <div id="item"></div>
+    </div>
+    <div class="bar" id="hpBar"><div id="hpFill"></div><span>❤️ জীবন</span></div>
+    <div class="bar" id="stamina"><div id="staminaFill"></div><span>💨 দম</span></div>
+    <div id="feed"></div>
+    <div id="banner"></div>
+    <div id="brawlBar" class="hidden"></div>
+    <div id="dogWarn" class="hidden">🐕🐕 পিছনে কুকুর!</div>
+    <div id="topButtons">
+      <button id="btnCam" class="mini" aria-label="ক্যামেরা">🎥</button>
+      <button id="btnMute" class="mini" aria-label="শব্দ">🔊</button>
+      <button id="btnPause" class="mini" aria-label="মেনু">☰</button>
+    </div>
+  </div>
+
+  <!-- touch controls -->
+  <div id="touch" class="hidden">
+    <div id="leftPad">
+      <div id="steer">
+        <button data-k="left" class="tb">◀</button>
+        <button data-k="right" class="tb">▶</button>
+      </div>
+      <div id="slider" class="tb"><span>◀</span><span>▶</span><div id="sliderKnob"></div></div>
+      <button data-k="sprint" class="tb act sprintL">🏃<small>জোরে</small></button>
+    </div>
+    <div id="actions">
+      <button data-k="sprint" class="tb act sprint">🏃<small>জোরে</small></button>
+      <button data-k="attack" class="tb act attack">👊<small>মার</small></button>
+      <button data-k="jump" class="tb act jump">⤒<small>লাফ</small></button>
+    </div>
+  </div>
+
+  <!-- title screen -->
+  <div id="title" class="screen">
+    <div class="titleCard">
+      <div class="logoBn">বাডি রেস</div>
+      <div class="logoEn">BUDDY <span>RACE</span></div>
+      <button id="btnPlay" class="big">▶ খেলা শুরু</button>
+      <button id="btnMP" class="big alt">👥 বন্ধুদের সাথে খেলো</button>
+      <button id="btnCtlTitle" class="ghost">⚙ সেটিংস ও কন্ট্রোল</button>
+      <div class="keys" id="keysHelp"></div>
+      <div id="loading">লোড হচ্ছে…</div>
+    </div>
+  </div>
+
+  <!-- level select -->
+  <div id="levels" class="screen hidden">
+    <div class="titleCard wide">
+      <button id="btnLevelsBack" class="ghost topBack">‹</button>
+      <div class="logoBn sm">লেভেল বাছো</div>
+      <div class="tag">একটা শেষ করলে পরেরটা খুলবে</div>
+      <div id="levelGrid"></div>
+    </div>
+  </div>
+
+  <!-- multiplayer -->
+  <div id="mp" class="screen hidden">
+    <div class="titleCard wide">
+      <button id="mpBack" class="ghost topBack">‹ Back</button>
+      <div class="logoBn sm en">Play with Friends</div>
+      <div class="tag en">Up to 5 players. Empty seats are filled by computer runners.</div>
+      <div id="mpStart">
+        <label class="field"><span>Your name</span><input id="mpName" maxlength="14" placeholder="Poltu" autocomplete="off" /></label>
+        <button id="mpCreate" class="big">＋ Create room</button>
+        <div class="joinRow"><input id="mpCode" maxlength="6" placeholder="ROOM CODE" autocomplete="off" /><button id="mpJoin" class="big alt">Join</button></div>
+      </div>
+      <div id="mpLobby" class="hidden">
+        <div class="roomCode">Room code <b id="mpCodeShow"></b></div>
+        <button id="mpCopy" class="ghost">🔗 Copy invite link</button>
+        <ul id="mpPlayers"></ul>
+        <div id="mpHostCtl">
+          <label class="field"><span>Level</span><select id="mpLevel"></select></label>
+          <button id="mpGo" class="big">▶ Start race</button>
+        </div>
+        <div id="mpWaitMsg" class="tag">Waiting for the host to start…<br><b id="mpLevelShow"></b></div>
+        <button id="mpLeave" class="ghost">Leave room</button>
+      </div>
+      <div id="mpStatus" class="tag"></div>
+    </div>
+  </div>
+
+  <!-- story slides -->
+  <div id="story" class="screen hidden">
+    <div id="slides"></div>
+    <div id="storyNav"><span id="dots"></span><button id="storyNext" class="ghost">Next ›</button><button id="storySkip" class="ghost">Skip »</button></div>
+  </div>
+  <div id="waitHost" class="screen hidden"><div class="titleCard small"><div class="logoBn sm en">Hold on…</div><div class="tag en">Waiting for the host to start</div></div></div>
+
+  <!-- countdown -->
+  <div id="countdown" class="hidden"></div>
+
+  <!-- pause / menu -->
+  <div id="pause" class="screen hidden">
+    <div class="titleCard small">
+      <div class="logoBn en">Paused</div>
+      <div id="pauseNote" class="tag en hidden">⚠️ Your friends' race keeps running!</div>
+      <button id="btnResume" class="big en">▶ Continue</button>
+      <button id="btnCtlPause" class="big alt en">⚙ Settings</button>
+      <button id="btnQuit" class="ghost en">⌂ Exit to menu</button>
+    </div>
+  </div>
+
+  <!-- settings & controls -->
+  <div id="controls" class="screen hidden">
+    <div class="titleCard wide">
+      <button id="ctlBack" class="ghost topBack">‹ Back</button>
+      <div class="logoBn sm en">Settings</div>
+      <div class="tabs">
+        <button data-tab="game">🎮 Game</button><button data-tab="touch">📱 Mobile</button><button data-tab="kb">⌨ Keyboard</button><button data-tab="pad">🕹 Gamepad</button>
+      </div>
+      <div id="ctlBody"></div>
+      <div class="ctlFoot"><button id="ctlReset" class="ghost">Reset</button><button id="ctlDone" class="big">✓ Done</button></div>
+    </div>
+  </div>
+
+  <!-- results -->
+  <div id="result" class="screen hidden">
+    <div class="titleCard">
+      <div id="resultHead" class="logoBn"></div>
+      <div id="resultSub" class="tag"></div>
+      <ol id="resultList"></ol>
+      <button id="btnNext" class="big">⏭ পরের লেভেল</button>
+      <button id="btnAgain" class="big alt">↻ আবার খেলো</button>
+      <button id="btnLobby" class="ghost">‹ Back to lobby</button>
+      <button id="btnLevels" class="ghost">☰ লেভেল</button>
+      <div id="resultWait" class="tag hidden">হোস্টের জন্য অপেক্ষা…</div>
+    </div>
+  </div>
+
+  <div id="rotate" class="hidden"><div class="phone">📱</div><b>ফোনটা ঘুরিয়ে নাও!</b><span>আড়াআড়ি করে ধরো, তবেই খেলা জমবে</span><button id="btnRotate" class="big">⛶ ফুল স্ক্রিন</button></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
