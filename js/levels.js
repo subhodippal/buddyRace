@@ -4,7 +4,7 @@
 //   junction: Y-junction decoration in the middle of the segment.
 export const LEVELS = [
   {
-    id: 1, bn: 'কলেজ থেকে পাড়া', en: 'College to the Para', seed: 11, dogs: [600], traffic: 0.85, aiBoost: 0,
+    id: 1, bn: 'লুচি কাণ্ড', en: 'The Luchi Affair', seed: 11, dogs: [600], traffic: 0.85, aiBoost: 0,
     tags: '🏫 ক্যাম্পাস · 🏙 শহর · ↩ বাঁক',
     segments: [
       { len: 200, zone: 'campus', surface: 'path', half: 5.5 },
@@ -16,7 +16,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 2, bn: 'বাজারের ভিড়', en: 'Market Rush', seed: 22, dogs: [520, 1050], traffic: 1, aiBoost: 0.3,
+    id: 2, bn: 'রিমোট যুদ্ধ', en: 'Remote Wars', seed: 22, dogs: [520, 1050], traffic: 1, aiBoost: 0.3,
     tags: '🛒 বাজার · ↔ সরু গলি · Y মোড়',
     segments: [
       { len: 140, zone: 'campus', surface: 'path', half: 5.5 },
@@ -29,7 +29,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 3, bn: 'গ্রামের মেঠো পথ', en: 'Village Dirt Road', seed: 33, dogs: [480, 1020], traffic: 0.8, aiBoost: 0.5,
+    id: 3, bn: 'ডিম রহস্য', en: 'The Egg Mystery', seed: 33, dogs: [480, 1020], traffic: 0.8, aiBoost: 0.5,
     tags: '🌾 গ্রাম · 🟫 মাটির রাস্তা · ⛰ উঁচু-নিচু',
     segments: [
       { len: 120, zone: 'campus', surface: 'path', half: 5.5 },
@@ -42,7 +42,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 4, bn: 'নদীর ধারে', en: 'By the River', seed: 44, dogs: [420, 980], traffic: 1.05, aiBoost: 0.7,
+    id: 4, bn: 'ছক্কা ও কাচ', en: 'Six and Smash', seed: 44, dogs: [420, 980], traffic: 1.05, aiBoost: 0.7,
     tags: '🌊 নদী · 🌉 সেতু · 🌾 গ্রাম',
     segments: [
       { len: 180, zone: 'city', surface: 'asphalt' },
@@ -55,7 +55,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 5, bn: 'মহা দৌড়', en: 'The Grand Chase', seed: 55, dogs: [480, 1200, 1850], traffic: 1.2, aiBoost: 1,
+    id: 5, bn: 'লাকি পেন', en: 'The Lucky Pen', seed: 55, dogs: [480, 1200, 1850], traffic: 1.2, aiBoost: 1,
     tags: '🔥 সব কিছু একসাথে!',
     segments: [
       { len: 180, zone: 'campus', surface: 'path', half: 5.5 },
@@ -73,7 +73,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 6, bn: 'গঙ্গার সেতু', en: 'The Long Bridge', seed: 66, dogs: [400, 1150], traffic: 1.15, aiBoost: 1.1, brawls: [0.3, 0.62],
+    id: 6, bn: 'ভাঙা চশমা', en: 'Broken Glasses', seed: 66, dogs: [400, 1150], traffic: 1.15, aiBoost: 1.1, brawls: [0.3, 0.62],
     tags: '🌉 লম্বা সেতু · 🛵 বাইকের ভিড় · 🛒 বাজার',
     segments: [
       { len: 160, zone: 'campus', surface: 'path', half: 5.5 },
@@ -86,7 +86,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 7, bn: 'গলির গোলকধাঁধা', en: 'Lane Maze', seed: 77, dogs: [350, 800, 1250], traffic: 1.1, aiBoost: 1.2, brawls: [0.25, 0.5, 0.78],
+    id: 7, bn: 'মাঝরাতের প্র্যাঙ্ক', en: 'Midnight Prank', seed: 77, dogs: [350, 800, 1250], traffic: 1.1, aiBoost: 1.2, brawls: [0.25, 0.5, 0.78],
     tags: '↔ সরু গলি · ↪↩ পাকে পাকে বাঁক · Y মোড় ×2 · 👊×3',
     segments: [
       { len: 120, zone: 'campus', surface: 'path', half: 5.5 },
@@ -102,7 +102,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 8, bn: 'ধানক্ষেতের আলপথ', en: 'Paddy Field Trail', seed: 88, dogs: [450, 1000, 1500], traffic: 0.9, aiBoost: 1.3,
+    id: 8, bn: 'ছেঁড়া প্যান্ট', en: 'The Torn Pant', seed: 88, dogs: [450, 1000, 1500], traffic: 0.9, aiBoost: 1.3,
     tags: '🌾 আলপথ · ⛰⛰ ঢেউ খেলানো · 🐄🐐🐔 সব',
     segments: [
       { len: 120, zone: 'campus', surface: 'path', half: 5.5 },
@@ -117,7 +117,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 9, bn: 'পাহাড়ি রাস্তা', en: 'Hill Road', seed: 99, dogs: [500, 1100, 1650], traffic: 1.1, aiBoost: 1.45,
+    id: 9, bn: 'মাঙ্কি টুপি', en: 'The Monkey Cap', seed: 99, dogs: [500, 1100, 1650], traffic: 1.1, aiBoost: 1.45,
     tags: '⛰ খাড়া চড়াই-উতরাই · 🌀 গোল বাঁক · 🟫 অফ-রোড',
     segments: [
       { len: 140, zone: 'campus', surface: 'path', half: 5.5 },
@@ -132,7 +132,7 @@ export const LEVELS = [
     ],
   },
   {
-    id: 10, bn: 'ফাইনাল: সুপারের দৌড়', en: 'Final: Super Showdown', seed: 1010, dogs: [420, 1050, 1700, 2350], traffic: 1.35, aiBoost: 1.7,
+    id: 10, bn: 'ফাইনাল: রেজাল্ট ডে', en: 'Final: Results Day', seed: 1010, dogs: [420, 1050, 1700, 2350], traffic: 1.35, aiBoost: 1.7,
     brawls: [0.22, 0.45, 0.68, 0.88], tags: '💀 সবচেয়ে কঠিন · 👊×4 · 🐕×4',
     segments: [
       { len: 160, zone: 'campus', surface: 'path', half: 5.5 },

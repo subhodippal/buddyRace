@@ -21,7 +21,7 @@ const DEFAULTS = {
   pad: { left: ['a0-', 'b14'], right: ['a0+', 'b15'], sprint: ['b7', 'b5'], jump: ['b0', ''], attack: ['b2', 'b1'],
     cam: ['b3', ''], pause: ['b9', ''], mute: ['b8', ''] },
   touch: { mode: 'auto', scheme: 'slider', size: 1, opacity: 0.9, leftHanded: false, gyroSens: 25, gyroInvert: false },
-  game: { slang: 0, bystanders: true, name: '' },
+  game: { slang: 0, bystanders: true, voice: true, name: '' },
 };
 const clone = o => JSON.parse(JSON.stringify(o));
 let cfg = load();
@@ -277,9 +277,12 @@ function renderPanel() {
         'Off — clean, fine for the whole family.',
         'On — মজার গালি: "কানা ডোচা", "বোকা পাঁঠা", "কালা ডোচা", "আলবাল বকিস না", "তুই ছিঁড়ে নিবি?", "শুয়োরের নাতি"…'][+g.slang ? 1 : 0]}</p>
       <div class="setRow"><span><b>Bystander comments</b><small>People on the road shout at you</small></span>
-        <label class="switch"><input type="checkbox" id="gBy" ${g.bystanders ? 'checked' : ''}><i></i></label></div>`;
+        <label class="switch"><input type="checkbox" id="gBy" ${g.bystanders ? 'checked' : ''}><i></i></label></div>
+      <div class="setRow"><span><b>Bengali voice (বাংলা আওয়াজ)</b><small>Comments &amp; slang are spoken aloud</small></span>
+        <label class="switch"><input type="checkbox" id="gVo" ${g.voice ? 'checked' : ''}><i></i></label></div>`;
     body.querySelectorAll('[data-slang]').forEach(b => b.onclick = () => { g.slang = +b.dataset.slang; save(); renderPanel(); });
     body.querySelector('#gBy').onchange = e => { g.bystanders = e.target.checked; save(); };
+    body.querySelector('#gVo').onchange = e => { g.voice = e.target.checked; save(); window.dispatchEvent(new CustomEvent('voicesetting', { detail: g.voice })); };
   } else if (activeTab === 'kb') {
     body.innerHTML = `<p class="hint">Tap a box, then press a key. <b>Backspace</b> clears, <b>Esc</b> cancels.</p>${rowsHTML('keys')}`;
   } else if (activeTab === 'pad') {

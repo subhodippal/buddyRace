@@ -305,9 +305,9 @@ const skinTones = [0xc68642, 0xa8703f, 0xd19a66, 0x8d5524, 0xb87a4b];
 const clothes = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0xe67e22, 0x1abc9c, 0xffffff, 0xfd79a8, 0x6c5ce7, 0xd35400, 0x00b894];
 
 // cheap bystander (few meshes). Women wear a saree (long skirt box + drape).
-export function makeNPC() {
+export function makeNPC(male = false) {
   const g = new THREE.Group();
-  const female = Math.random() < 0.4;
+  const female = !male && Math.random() < 0.4;
   const top = mat(pick(clothes)), skin = mat(pick(skinTones));
   if (female) {
     const sar = mat(pick(clothes));
@@ -325,7 +325,7 @@ export function makeNPC() {
   const armR = new THREE.Group(); armR.position.set(-0.38, 1.6, 0); g.add(armR);
   mesh(boxG(0.15, 0.6, 0.15), top, 0, -0.3, 0, armR);
   blobShadow(0.9, 0.9, g);
-  return { root: g, armL, armR };
+  return { root: g, armL, armR, female };
 }
 
 // the Hostel Superintendent — white kurta-dhoti, glasses, grey hair, cane

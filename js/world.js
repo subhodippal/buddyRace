@@ -2,6 +2,7 @@
 // Generation is seeded per chunk so every player in a multiplayer room sees the same world.
 import * as THREE from 'three';
 import { mat, mesh, boxG, makeNPC, makeBoat } from './models.js';
+import { COMMENTS } from './stories.js';
 
 export const CHUNK = 40;
 const BN_FONT = '"Noto Sans Bengali", "Baloo Da 2", sans-serif';
@@ -112,6 +113,11 @@ function buildTextures() {
   });
   const sc = () => SIGN_COLORS[(Math.random() * SIGN_COLORS.length) | 0];
   T.signs = SHOPS.map(([t, s]) => { const [bg, fg] = sc(); return signTexture(t, bg, fg, s); });
+  // shop names from comments.json (common.shopNames): on stall boards, and on about half of the shop signs
+  const own = ((COMMENTS.common || {}).shopNames || []).filter(x => typeof x === 'string' && x.trim());
+  T.ownSigns = own.map(t => { const [bg, fg] = sc(); return signTexture(t, bg, fg); });
+  T.stallSigns = own.map(t => { const [bg, fg] = sc(); return signTexture(t, bg, fg, '', 512, 120); });
+  if (T.ownSigns.length) T.signs = T.signs.concat(...Array(Math.ceil(T.signs.length / T.ownSigns.length)).fill(T.ownSigns));
   T.hoard = HOARDINGS.map(([t, s]) => { const [bg, fg] = sc(); return signTexture(t, bg, fg, s, 512, 220); });
   T.market = MARKET_BANNERS.map(([t, s]) => { const [bg, fg] = sc(); return signTexture(t, bg, fg, s, 512, 120); });
   T.gate = signTexture('বন্ধু মহাবিদ্যালয়', '#ffffff', '#8b1a1a', 'স্থাপিত ১৯৫৬', 768, 180);
@@ -204,6 +210,7 @@ function teaStall(g, x, z) {
   for (let i = 0; i < 4; i++) mesh(cylG(0.05, 0.04, 0.1), mat(0xb5532c), x + 0.1 + i * 0.13, 1.2, z + 0.1, g);
   mesh(boxG(1.8, 0.06, 1.4), mat(0x2266aa), x, 2.4, z, g);
   mesh(boxG(0.06, 2.2, 0.06), mat(0x555555), x - 0.85, 1.3, z, g); mesh(boxG(0.06, 2.2, 0.06), mat(0x555555), x + 0.85, 1.3, z, g);
+  stallBoard(g, x - Math.sign(x) * 0.8, 2.7, z, 1.8);
 }
 function marketStall(g, x, z) {
   mesh(boxG(1.6, 0.8, 3), mat(0x8b5a2b), x, 0.6, z, g);
@@ -212,6 +219,11 @@ function marketStall(g, x, z) {
   if (R() < 0.4) mesh(boxG(1.2, 0.15, 0.5), mat(0x9fb6c4), x, 1.1, z + 0.9, g); // fish on ice
   const um = mesh(coneG, mat(pick([0xe74c3c, 0x2e86de, 0xf39c12, 0x16a085, 0xffffff])), x, 2.9, z, g); um.scale.set(2.1, 0.6, 2.1);
   mesh(cylG(0.04, 0.04, 2.4), mat(0x555555), x, 1.7, z, g);
+  stallBoard(g, x - Math.sign(x) * 0.85, 2.2, z, 2.2);
+}
+function stallBoard(g, x, y, z, w) { // a name board facing the road (from comments.json shopNames)
+  if (!T.stallSigns || !T.stallSigns.length) return;
+  const b = sign2(w, w * 0.24, pick(T.stallSigns), g); b.position.set(x, y, z); b.rotation.y = Math.PI / 2;
 }
 function ambassadorTaxi(g, x, z) {
   const y = mat(0xf2c200);
@@ -425,11 +437,11 @@ export class World {
     }
   }
 
-  npc(g, npcs, s, lat, y = 0) {
-    const n = makeNPC();
+  npc(g, npcs, s, lat, y = 0, role = '') { // role 'shop' = shopkeeper (uses comments.json → shopkeepers)
+    const n = makeNPC(role === 'shop'); // shopkeepers are men (they use the older male voice)
     this.anchor(g, s, lat, y).add(n.root);
     n.root.rotation.y = (lat > 0 ? -Math.PI / 2 : Math.PI / 2) + rand(-0.5, 0.5); // face the road
-    const o = { x: lat, z: s, y, m: n, talkT: rand(0, 3), phase: R() * 6 };
+    const o = { x: lat, z: s, y, m: n, role, female: n.female, talkT: rand(0, 3), phase: R() * 6 };
     npcs.push(o); this.npcs.add(o);
     return o;
   }
@@ -453,8 +465,10 @@ export class World {
       const hd = sign2(6, 2.6, pick(T.hoard), an); hd.position.set(fx + side * 3, h + 2.2, 0);
       mesh(boxG(0.15, 1.6, 0.15), mat(0x555555), fx + side * 1.5, h + 0.8, 0.1, an); mesh(boxG(0.15, 1.6, 0.15), mat(0x555555), fx + side * 4.5, h + 0.8, 0.1, an);
     }
-    if (R() < 0.3) teaStall(an, side * (H(sc) + 2.2), 0);
-    if (R() < 0.65) this.npc(g, npcs, s + rand(1, w - 1), side * (H(sc) + rand(1.2, 2.8)), 0.2);
+    const tea = R() < 0.3;
+    if (tea) teaStall(an, side * (H(sc) + 2.2), 0);
+    if (tea) this.npc(g, npcs, sc + rand(-0.6, 0.6), side * (H(sc) + 2.9), 0.2, 'shop'); // the tea seller
+    else if (R() < 0.65) this.npc(g, npcs, s + rand(1, w - 1), side * (H(sc) + rand(1.2, 2.8)), 0.2);
     if (R() < 0.18) tree(this.anchor(g, s + 1), side * (H(s) + 1.4), 0, 0.85);
     if (R() < 0.16) { // parked yellow taxi — solid
       const lat = side * (H(sc) - 0.75);
@@ -467,7 +481,7 @@ export class World {
   marketBlock(g, side, s, H, npcs) {
     const w = 4, sc = s + w / 2, an = this.anchor(g, sc);
     marketStall(an, side * (H(sc) + 1.6), 0);
-    this.npc(g, npcs, sc + rand(-1, 1), side * (H(sc) + rand(2.6, 3.0)), 0.2);
+    this.npc(g, npcs, sc + rand(-1, 1), side * (H(sc) + rand(2.6, 3.0)), 0.2, 'shop'); // behind the stall
     if (R() < 0.6) this.npc(g, npcs, sc + rand(-1.5, 1.5), side * (H(sc) + rand(0.4, 1.0)), 0.2);
     const bh = pick([5, 6, 8]);
     mesh(buildingGeo(6, bh + 3, w + 0.2), lam({ color: pick(KOLKATA_COLORS), map: T.windows }), side * (H(sc) + 6.2), (bh - 3) / 2, 0, an);

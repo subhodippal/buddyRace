@@ -1,11 +1,11 @@
 // Comic-style slides that slide in one after another (used for the intro story and the ending).
-import { sfx } from './audio.js';
+import { startMusic, stopMusic } from './audio.js';
 
 let active = null;
 export function storyOpen() { return !!active; }
 export function closeStory() { if (active) active(); }
 
-export function playSlides(slides, onDone, { dur = 3600, skipLabel = 'Skip »' } = {}) {
+export function playSlides(slides, onDone, { dur = 2700, skipLabel = 'Skip »' } = {}) {
   const root = document.getElementById('story');
   const wrap = document.getElementById('slides');
   const dots = document.getElementById('dots');
@@ -19,7 +19,7 @@ export function playSlides(slides, onDone, { dur = 3600, skipLabel = 'Skip »' }
 
   const finish = () => {
     if (done) return; done = true; active = null;
-    clearTimeout(timer);
+    clearTimeout(timer); stopMusic();
     root.classList.add('hidden'); wrap.innerHTML = '';
     root.removeEventListener('pointerup', onTap);
     onDone && onDone();
@@ -31,15 +31,13 @@ export function playSlides(slides, onDone, { dur = 3600, skipLabel = 'Skip »' }
     els.forEach((el, i) => { el.classList.toggle('active', i === n); el.classList.toggle('gone', i < n); });
     [...dots.children].forEach((d, i) => d.classList.toggle('on', i === n));
     els[n].querySelectorAll('*').forEach(e => { e.style.animationName = 'none'; void e.offsetWidth; e.style.animationName = ''; });
-    const s = slides[n];
-    if (s.sound && sfx[s.sound]) setTimeout(() => !done && sfx[s.sound](), 350);
-    if (s.bg === 'bg-fight') { setTimeout(sfx.kick, 700); setTimeout(sfx.slap, 1000); setTimeout(sfx.kick, 1400); setTimeout(sfx.slap, 1800); }
     idx = n;
-    timer = setTimeout(() => go(idx + 1), s.dur || dur);
+    timer = setTimeout(() => go(n + 1), slides[n].dur || dur);
   };
   const onTap = (e) => { if (!e.target.closest('button')) go(idx + 1); };
   document.getElementById('storyNext').onclick = () => go(idx + 1);
   document.getElementById('storySkip').onclick = finish;
   root.addEventListener('pointerup', onTap);
+  startMusic('action'); // no voices or effects here: just action music under the slides
   requestAnimationFrame(() => go(0));
 }

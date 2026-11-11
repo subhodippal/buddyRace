@@ -5,9 +5,10 @@ import { Track } from './track.js';
 import { World } from './world.js';
 import { LEVELS } from './levels.js';
 import * as M from './models.js';
-import { initAudio, sfx, say as tts, setMuted, isMuted, startMusic, stopMusic, setMusicFast } from './audio.js';
+import { initAudio, sfx, say as tts, setVoice, pauseAudio, resumeAudio, setMuted, isMuted, startMusic, stopMusic, setMusicFast } from './audio.js';
 import { playSlides, closeStory } from './intro.js';
-import { STORIES, line, introSlides, endingSlides } from './stories.js';
+import { STORIES, line, introSlides, endingSlides, storyForLevel, COMMENTS } from './stories.js';
+import { VOICE_RATE, SUPER_RATE } from './voicekey.js';
 import { initInput, held, pollGamepad, openControls, closeControls, isPanelOpen, touchEnabled, bindingLabel, isTouchDevice as isTouch, setting, setSetting, steerAxis, startGyro, calibrateGyro } from './input.js';
 import { net, hostRoom, joinRoom, send, sendTo, broadcast, leave } from './net.js';
 
@@ -33,7 +34,6 @@ const CHARS = [
   { name: 'বাবলু', en: 'Bablu', color: '#2e86de', shirt: 0x2e86de, lungi: 0x3c8d5a, skin: 0xa8703f },
   { name: 'পিন্টু', en: 'Pintu', color: '#27ae60', shirt: 0x27ae60, pants: 0x6b4f2a, skin: 0xd19a66, glasses: true },
   { name: 'হাবলু', en: 'Hablu', color: '#e1b000', shirt: 0xf1c40f, pants: 0x333333, skin: 0xb87a4b, hair: 0x2b1a10 },
-  { name: 'সুধীর', en: 'Sudhir', color: '#8e44ad', shirt: 0x8e44ad, pants: 0x555555, skin: 0x9a6334, hair: 0x111111 },
 ];
 
 // ---------------- renderer / scene ----------------
@@ -82,12 +82,16 @@ const obById = new Map(), pkById = new Map(), dogById = new Map();
 let time = 0, raceTime = 0, camMode = 0, shake = 0, nextId = 1;
 let nextSpawnS = 0, nextPickupS = 0, dogEvents = [], dogTime = 0, brawlEvents = [], brawl = null;
 let finishOrder = [], endTimer = -1, bystanderT = 0;
-let story = STORIES[0], cast = { culprit: 1, victim: 0 }, lastStory = -1;
+let story = STORIES[0], cast = { culprit: 1, victim: 0 };
 let superM = null;
 const superObj = { x: 0, y: 0, z: 0 };
 const brawlCloud = makeBrawlCloud();
 
-const L = cat => line(cat, setting('slang'), story);
+const L = cat => line(cat, setting('slang'), story, level.id);
+// obstacles that talk (only lines from comments.json): stall carts = shopkeepers, walkers, vehicle drivers.
+// Animals, bells and horns make their sound but show no text.
+const isVehicle = o => o.vehicle || ['rickshaw', 'cycle', 'auto', 'toto', 'bike', 'taxi'].includes(o.kind);
+const wordOf = o => (o.kind === 'thela' ? L('shopkeeper') : o.kind === 'walker' ? L('walker') : isVehicle(o) ? L('driver') : '');
 const humans = () => runners.filter(r => r.human);
 
 // ---------------- network event outbox (host → clients) ----------------
@@ -123,8 +127,27 @@ function feedAdd(who, text) { // a small running chat log, so every line can be 
   feedEl.appendChild(el); feed.push({ el, life: 4.5 });
   while (feed.length > 4) feed.shift().el.remove();
 }
-function bubble(obj, text, life = 2.2, yOff = 2.8) {
-  if (!obj) return;
+// who gets a voice, and how they sound. Every clip is an angry voice with its own tune per group (see
+// tools/make-voices.mjs): friend, bystander, shopkeeper, driver, super, female. pitch = a small playback-rate
+// change on top, so two people of the same group still sound a little different.
+function voiceOf(obj) {
+  if (obj.isRunner) return { voice: 'friend', pitch: VOICE_RATE[obj.idx % VOICE_RATE.length], pri: obj === player ? 1 : 0 };
+  if (obj === superObj) return { voice: 'super', pitch: SUPER_RATE, pri: 1 };
+  if (world && world.npcs.has(obj)) return { voice: obj.female ? 'female' : obj.role === 'shop' ? 'shopkeeper' : 'bystander', pitch: obj.vPitch ??= rand(0.95, 1.05) };
+  if (obj.kind === 'thela') return { voice: 'shopkeeper', pitch: 0.97 };
+  if (obj.kind === 'walker') return { voice: 'bystander', pitch: 1.02 };
+  if (isVehicle(obj)) return { voice: 'driver', pitch: obj.vPitch ??= rand(0.95, 1.05) };
+  return null;
+}
+function voice(obj, text) {
+  if (!setting('voice') || !(state === 'playing' || state === 'countdown')) return;
+  const v = voiceOf(obj); if (!v) return;
+  if (obj !== player && Math.abs((obj.z || 0) - player.z) > 18) return; // only what you can hear
+  tts(text, v);
+}
+function bubble(obj, text, life = 2.2, yOff = 2.8, silent = false) {
+  if (!obj || !text || menuOpen) return; // nothing new is said while paused
+  if (!silent) voice(obj, text);
   const who = speakerOf(obj);
   if (brawl && obj.isRunner && obj.inBrawl) { if (bubbles.length >= 3 && obj !== player) return; yOff = 4.4; } // float above the dust cloud
   if (obj._bub) { obj._bub.txt.textContent = text; obj._bub.life = life; obj._bub.w = 0; return; }
@@ -137,9 +160,13 @@ function bubble(obj, text, life = 2.2, yOff = 2.8) {
   const b = { el, txt: el.lastChild, obj, yOff, life, w: 0, h: 0 }; obj._bub = b; bubbles.push(b);
 }
 function talk(obj, cat, life = 1.5, yOff) { // a line from a category; clients pick their own text (their foul setting)
-  bubble(obj, L(cat), life, yOff);
+  bubble(obj, L(cat), life, yOff, cat === 'fall' && obj !== player); // you only hear your own fall cries
   const ref = refOf(obj); if (ref) emit({ e: 'tk', k: ref[0], i: ref[1], c: cat, l: life, y: yOff });
 }
+let othersLeft = 3, othersNextT = 10;
+function otherCanTalk() { return othersLeft > 0 && raceTime >= othersNextT; }
+function otherTalked() { othersLeft--; othersNextT = raceTime + rand(20, 35); }
+function otherSay(o, text, life, yOff) { if (!text || !otherCanTalk()) return; otherTalked(); say(o, text, life, yOff); }
 function say(obj, text, life = 1.5, yOff) {
   bubble(obj, text, life, yOff);
   const ref = refOf(obj); if (ref) emit({ e: 'tx', k: ref[0], i: ref[1], x: text, l: life, y: yOff });
@@ -219,12 +246,12 @@ class Runner {
   }
   get label() { return this === player ? 'তুমি' : (this.netName || (this.idx === 0 ? 'বন্ধু' : this.def.name)); }
   reset() {
-    const startX = [-0.2, -2.2, 1.8, -4.0, 3.6];
+    const startX = [-0.6, -2.8, 1.6, 3.8]; // 4 runners
     this.x = startX[this.idx]; this.z = 0; this.y = 0; this.vy = 0; this.vx = 0; this.speed = 0;
     this.stun = 0; this.inv = 0; this.fall = 0; this.slow = 0; this.spin = 0; this.ko = 0; this.boostT = 0; this.bumpCd = 0;
     this.hp = 100; this.stick = false; this.stones = 0; this.kickDir = 1; this.attackT = 0; this.attackType = null; this.attackSide = 1;
     this.cd = 0; this.kickNext = false; this.phase = Math.random() * 6; this.stamina = 1;
-    this.finished = false; this.caught = false; this.finishTime = 0; this.lineSlot = 0; this.talkT = rand(2, 5);
+    this.finished = false; this.caught = false; this.finishTime = 0; this.lineSlot = 0; this.talkT = rand(0.3, 1.2);
     this.inBrawl = false; this.brawlScore = 0; this.brawlSlot = 0; this.sprinting = false; this.tired = false; this.dustT = 0; this.sweatT = 0;
     this.ai = { tx: this.x, think: rand(0.5, 2), sprintT: 0, skill: rand(0.78, 0.92) + level.aiBoost * 0.03,
       aggro: rand(0.5, 1.0), lastObs: null, lastOk: true, dodge: false };
@@ -453,7 +480,7 @@ function autoPickup(r) {
     if (p.item === 'stone') { r.stones = Math.min(9, r.stones + 3); pow(p.x, 1, p.z, '+৩ 🪨'); }
     else if (p.item === 'stick') { r.stick = true; pow(p.x, 1, p.z, '🪵'); }
     else { r.hp = Math.min(100, r.hp + 30); pow(p.x, 1.2, p.z, '+৩০ ❤️ রসগোল্লা!'); }
-    if (r.human) { play('pick', r.z, r.idx); if (p.item === 'sweet') say(r, 'আহা! রসগোল্লা!', 1.1); }
+    if (r.human) { play('pick', r.z, r.idx);  }
   }
 }
 function throwTarget(r) {
@@ -486,7 +513,7 @@ function doAttack(r) {
     r.kickNext = !r.kickNext;
     r.attackSide = Math.sign(dx) || 1; r.kickDir = dz >= 0 ? 1 : -1;
     hit(best, r, r.attackType);
-    if (Math.random() < (r.inBrawl ? 0.15 : 0.4)) talk(r, r.inBrawl ? 'brawl' : 'chase', 1.1);
+    if (Math.random() < (r.inBrawl ? 0.6 : 0.75)) talk(r, r.inBrawl ? 'brawl' : 'chase', 0.9); // a taunt with almost every hit
   } else {
     const tgt = r.stones > 0 && !r.inBrawl ? throwTarget(r) : null;
     if (tgt || (r.stones > 0 && r.human && !r.inBrawl)) { throwStone(r, tgt); return; }
@@ -494,13 +521,13 @@ function doAttack(r) {
     r.kickNext = !r.kickNext; r.attackSide = 1; r.kickDir = 1;
     if (r.human) play('throw', r.z, r.idx);
   }
-  if (r === player && Math.random() < 0.15) tts(pick(['ধর ধর', 'ধরে কেলাবো', 'ভালো হচ্ছে না কিন্তু']));
+  if (r === player && Math.random() < 0.15) say(r, L('chase'), 1.2);
 }
 function damage(t, amount) {
   t.hp -= amount;
   if (t.hp <= 0) { // knocked out
     t.hp = 60; t.stun = 3; t.inv = 4.5; t.ko = 3;
-    pow(t.x, t.y + 2.2, t.z, 'অজ্ঞান! 💫'); talk(t, 'ko', 2);
+    pow(t.x, t.y + 2.2, t.z, 'অজ্ঞান! 💫'); talk(t, 'fall', 2);
   }
 }
 function hit(t, by, type) {
@@ -511,7 +538,7 @@ function hit(t, by, type) {
   if (!brawling) { t.speed *= 0.25; if (by) t.vx = (t.x >= by.x ? 1 : -1) * 6; }
   if (by && brawling) by.brawlScore++;
   pow(t.x, t.y + 1.8, t.z, brawling ? pick(BRAWL_POWS) : POW[type]);
-  if (Math.random() < (brawling ? 0.12 : 0.7)) talk(t, 'hurt', 1.2);
+  if (Math.random() < (brawling ? 0.08 : t === player ? 0.6 : 0.4)) talk(t, 'fall', 1.2);
   play(type === 'kick' ? 'kick' : type === 'stick' ? 'stick' : type === 'stone' ? 'stone' : type === 'bite' ? 'bark' : 'slap', t.z);
   if (t === player) shake = brawling ? 0.12 : 0.35;
   if (t.human) play('hurt', t.z, t.idx);
@@ -560,27 +587,27 @@ function hitObstacle(r, o) {
   if (o.kind === 'drain') {
     if (Math.abs(r.x - o.plankX) < 0.6) return; // walking the plank
     r.stun = 1.6; r.speed = 0; r.inv = 2.4; r.z = o.z + o.d + 0.6;
-    pow(r.x, 1, o.z, 'ছপাৎ!'); play('splash', r.z); say(r, pick(['নর্দমায় পড়লাম!', 'ছিঃ! কাদা!', 'মা গো, নালা!']), 1.4);
+    pow(r.x, 1, o.z, 'ছপাৎ!'); play('splash', r.z); talk(r, 'fall', 1.4);
     damage(r, 10);
   } else if (o.slip) {
     r.stun = 1.1; r.spin = 1; r.speed *= 0.3; r.inv = 1.8;
-    pow(r.x, 1.4, r.z, 'পিছলে গেল!'); play('slip', r.z); say(r, pick(['কলার খোসা!', 'কে ফেলল রে!', 'ওরে বাবা!']), 1.2);
+    pow(r.x, 1.4, r.z, 'পিছলে গেল!'); play('slip', r.z); talk(r, 'fall', 1.2);
     damage(r, 5);
   } else if (o.trip) {
     r.stun = 0.9; r.speed *= 0.3; r.inv = 1.6;
     pow(r.x, 0.8, r.z, 'ধপাস!'); play('land', r.z);
-    say(r, pick(['গর্ত!', 'উফ!', 'রাস্তা না নালা!']), 1.2); damage(r, 4);
+    talk(r, 'fall', 1.2); damage(r, 4);
   } else if (o.kind === 'hens') {
     r.stun = 0.5; r.speed *= 0.5; r.inv = 1.2; o.vx = -o.vx * 1.3;
     pow(r.x, 1.2, r.z, 'কঁক কঁক! 🪶'); play('hen', r.z); damage(r, 2);
   } else if (o.walker) {
     r.stun = 0.9; r.speed = 0; r.inv = 1.8; r.z = Math.min(r.z, o.z - 0.8);
-    say(o, o.word, 1.3, 2.6); talk(r, 'crash', 1.2); pow(r.x, 1.6, r.z, 'ধাক্কা!'); play('kick', r.z); damage(r, 4);
+    otherSay(o, wordOf(o), 1.3, 2.6); talk(r, 'fall', 1.2); pow(r.x, 1.6, r.z, 'ধাক্কা!'); play('kick', r.z); damage(r, 4);
   } else {
     r.stun = big ? 1.3 : 1.1; r.speed = 0; r.inv = r.stun + 0.9;
     r.z = Math.min(r.z, o.z - o.d - 0.45);
-    if (big) { play('crash', r.z); talk(r, 'crash', 1.3); if (o.word && o.root) say(o, o.word, 1.2, 2.9); }
-    else { if (o.sound) play(o.sound, r.z); say(o, o.word || 'ঠক!', 1.2, 2); play('kick', r.z); }
+    if (big) { play('crash', r.z); talk(r, 'fall', 1.3); if (o.root) otherSay(o, wordOf(o), 1.2, 2.9); }
+    else { if (o.sound) play(o.sound, r.z); otherSay(o, wordOf(o), 1.2, 2); play('kick', r.z); }
     pow(r.x, 1.6, r.z, big ? 'ধড়াম!' : 'ধপাস!');
     damage(r, big ? 14 : 6);
   }
@@ -613,7 +640,7 @@ function updateObstacles(dt, authoritative) {
     o.honkT -= dt;
     if (o.honkT < 0 && (o.vehicle || o.sound)) {
       const near = humans().find(h => o.z - h.z > -4 && o.z - h.z < 14 && Math.abs(o.x - h.x) < 5);
-      if (near) { if (o.sound) play(o.sound, o.z); if (o.word) say(o, o.word, 1.2, o.vehicle ? 2.9 : 2); o.honkT = rand(2.5, 5); }
+      if (near) { if (o.sound) play(o.sound, o.z); if (Math.random() < 0.3) otherSay(o, wordOf(o), 1.2, o.vehicle ? 2.9 : 2); o.honkT = rand(2.5, 5); }
       else o.honkT = 0.4;
     }
   }
@@ -635,7 +662,6 @@ function startDogs() {
   emit({ e: 'dg', l: list });
   showBanner('কুকুর! পালাও! 🐕', 'পিছনে কুকুরের দল — জোরে দৌড়াও!', 3);
   setMusicFast(true);
-  for (const r of runners) if (!r.finished && Math.random() < 0.8) setTimeout(() => state === 'playing' && talk(r, 'dog', 1.5), rand(100, 900));
   play('bark', player.z);
 }
 function addDog(p) {
@@ -656,13 +682,13 @@ function updateDogs(dt) {
         d.lungeT -= dt; wantZ = t.z + d.slotZ; wantX = t.x + d.slotX;
         if (d.lungeT < 0 && Math.abs(d.z - wantZ) < 1.5) {
           d.lunge = 0.8; d.lungeT = rand(1.8, 3.5);
-          play('bark', d.z); say(d, pick(['ঘেউ ঘেউ!', 'ঘেউ!', 'গররর!']), 0.8, 1.9);
+          play('bark', d.z); 
         }
       }
       tgtSpeed = clamp(t.speed + (wantZ - d.z) * 2.2, 0, DOG_MAX_SPEED);
       if (d.lunge > 0 && Math.abs(t.z - d.z) < 1.0 && Math.abs(t.x - d.x) < 0.9 && t.y < 0.6 && t.inv <= 0) {
         hit(t, null, 'bite'); t.slow = 1.2; d.lunge = 0;
-        if (Math.random() < 0.7) say(t, pick(['বাবা গো!', 'কামড়ে দিল!', 'মা গো!']), 1.4);
+        if (Math.random() < 0.7) talk(t, 'fall', 1.4);
       }
     }
     d.cur += (tgtSpeed - d.cur) * Math.min(1, dt * 4);
@@ -713,7 +739,7 @@ function startBrawl() {
   brawlSlots();
   emit({ e: 'bs', s: r2(cs) });
   onBrawlStart();
-  for (const r of act) if (Math.random() < 0.7) setTimeout(() => brawl && talk(r, 'brawl', 1.2), rand(200, 1200));
+  for (const r of act) if (Math.random() < 0.85) setTimeout(() => brawl && talk(r, 'brawl', 0.9), rand(100, 900));
 }
 function onBrawlStart() {
   showBanner('মারপিট! 👊 ধিসুম ধিসুম!', 'সবাই ১০ সেকেন্ড মারপিট — মার বোতাম চাপো!', 2.5, false);
@@ -743,7 +769,7 @@ function endBrawl() {
   const best = act.reduce((a, r) => (r.brawlScore > a.brawlScore ? r : a), act[0]);
   for (const r of act) {
     r.inBrawl = false; r.inv = 0.8;
-    if (r === best) { r.boostT = 3.5; say(r, 'জিতে গেছি! 💪', 1.6); }
+    if (r === best) { r.boostT = 3.5;  }
     else { r.stun = 0.6; r.ko = 0.8; }
   }
   if (best) { showBanner(`${best.label} মারপিটে জিতল!`, `${bnNum(best.brawlScore)} বার মেরেছে — গতি বাড়ল!`, 2.2); pow(best.x, 2.6, best.z, 'চ্যাম্পিয়ন! 🏆'); }
@@ -877,7 +903,10 @@ function updateRunner(r, dt) {
     else if (finishOrder.length === 1) showBanner(`${r.label} প্রথম!`, 'সবার আগে পৌঁছে গেছে', 1.8);
   }
   r.talkT -= dt;
-  if (r.talkT < 0) { r.talkT = rand(3, 6); if (!r.human && Math.abs(r.z - player.z) < 25) talk(r, 'chase', 1.5); }
+  if (r.talkT < 0) { // friends keep shouting: every 1–2.2 s while chasing, faster in a brawl
+    r.talkT = r.inBrawl ? rand(0.6, 1.3) : rand(1.0, 2.2);
+    if (!r.human && Math.abs(r.z - player.z) < 25) talk(r, r.inBrawl ? 'brawl' : 'chase', 1.0);
+  }
 }
 function gravity(r, dt) {
   if (r.y > 0 || r.vy > 0) {
@@ -900,7 +929,7 @@ function brawlRunner(r, dt, inp) { // everyone circles in the dust cloud, hittin
 }
 function caughtRunner(r, dt) { // walk to the punishment line-up in front of the Superintendent
   const F = track.finish, half = Math.min(4, track.half(F) - 0.8);
-  const tz = F + 8, tx = -half + r.lineSlot * (half * 2 / 4);
+  const tz = F + 8, tx = -half + r.lineSlot * (half * 2 / Math.max(1, runners.length - 1));
   r.speed = clamp((tz - r.z) * 3, 0, 8);
   r.z += r.speed * dt;
   r.x += clamp(tx - r.x, -1, 1) * 4 * dt;
@@ -1021,9 +1050,9 @@ function updateBystanders(dt) {
     n.m.armR.rotation.z = near ? -2.4 + Math.sin(time * 10 + n.phase) * 0.4 : -0.1;
     n.m.armL.rotation.x = near ? Math.sin(time * 8 + n.phase) * 0.5 : 0;
     n.talkT -= dt;
-    if (setting('bystanders') && near && n.talkT < 0 && bystanderT < 0 && state === 'playing') {
-      n.talkT = rand(6, 14); bystanderT = rand(0.8, 2);
-      bubble(n, L('bystander'), 1.8, 2.5);
+    if (setting('bystanders') && near && n.talkT < 0 && bystanderT < 0 && state === 'playing' && otherCanTalk()) {
+      n.talkT = rand(16, 30); bystanderT = rand(5, 9); otherTalked(); // bystanders share the race's 2–3 lines
+      bubble(n, L(n.role === 'shop' ? 'shopkeeper' : n.female ? 'bystanderF' : 'bystander'), 1.8, 2.5);
     }
   }
 }
@@ -1051,6 +1080,7 @@ function resetRace() {
   world.reset();
   const dbgS = +new URLSearchParams(location.search).get('z') || 0; // debug: ?z=600 starts further along
   runners.forEach(r => { r.reset(); r.z = dbgS; r.ai.tx = r.x; animRunner(r, 0); });
+  othersLeft = Math.random() < 0.5 ? 2 : 3; othersNextT = rand(8, 15); // other people speak only 2–3 times a race
   nextSpawnS = dbgS + 34; nextPickupS = dbgS + 18; raceTime = 0; finishOrder = []; dogTime = 0; shake = 0; endTimer = -1;
   brawl = null; brawlCloud.g.visible = false;
   dogEvents = level.dogs.filter(z => z > dbgS + 20);
@@ -1067,11 +1097,10 @@ function resetRace() {
   };
 }
 
-function chooseStory() {
-  let k; do { k = (Math.random() * STORIES.length) | 0; } while (k === lastStory && STORIES.length > 1);
-  lastStory = k;
-  const culprit = Math.random() < 0.25 ? 0 : 1 + ((Math.random() * 4) | 0);
-  let victim; do { victim = (Math.random() * 5) | 0; } while (victim === culprit);
+function chooseStory(levelIdx) { // the level decides the story; who did it is random
+  const k = storyForLevel(levelIdx);
+  const N = CHARS.length, culprit = Math.random() < 0.25 ? 0 : 1 + ((Math.random() * (N - 1)) | 0);
+  let victim; do { victim = (Math.random() * N) | 0; } while (victim === culprit);
   return { story: k, culprit, victim };
 }
 function castNames() {
@@ -1079,7 +1108,7 @@ function castNames() {
     colors: runners.map(r => r.def.color) };
 }
 
-function startGame(idx, pickS = chooseStory()) {
+function startGame(idx, pickS = chooseStory(idx)) {
   initAudio();
   hideScreens(); closeMenu();
   setupLevel(idx);
@@ -1088,7 +1117,7 @@ function startGame(idx, pickS = chooseStory()) {
   goReceived = false;
   state = 'story';
   $('hud').classList.add('hidden'); refreshTouch();
-  const ctx = { ...castNames(), ...cast, levelName: level.bn };
+  const ctx = { ...castNames(), ...cast, levelName: level.bn, levelNo: level.id };
   playSlides(introSlides(story, ctx, setting('slang')), () => {
     if (net.active && !net.host && !goReceived) { $('waitHost').classList.remove('hidden'); return; } // the host says when to go
     if (net.active && net.host) broadcast({ t: 'go' });
@@ -1109,7 +1138,8 @@ function startCountdown() {
     cd.innerHTML = `<span>${steps[i]}</span>`; sfx.beep(i === 3);
     if (i === 3) {
       state = 'playing'; startMusic(); refreshTouch();
-      if (!net.active || net.host) { talk(runners[cast.victim], 'chase', 1.6); talk(runners[(cast.victim + 2) % 5], 'chase', 1.6); }
+      // the level's special line opens the chase
+      if (!net.active || net.host) { { const sp = ((COMMENTS.common || {}).levelWiseComment || {})['l' + level.id]; if (sp) say(runners[cast.victim], sp, 1.8); else talk(runners[cast.victim], 'chase', 1.6); } talk(runners[(cast.victim + 2) % runners.length], 'chase', 1.6); }
       showBanner(`${story.bn}!`, 'ধর ধর!', 1.6, false);
       setTimeout(() => cd.classList.add('hidden'), 800);
       return;
@@ -1135,7 +1165,7 @@ function showEnding(order, times) {
   state = 'ending'; endTimer = -1;
   $('hud').classList.add('hidden'); closeMenu(); refreshTouch(); stopMusic();
   const ctx = { ...castNames(), ...cast, winner: order[0] };
-  playSlides(endingSlides(story, ctx, setting('slang')), () => showResults(order, times), { dur: 3800 });
+  playSlides(endingSlides(story, ctx, setting('slang')), () => showResults(order, times), { dur: 3000 });
 }
 function unlocked() { try { return +(localStorage.getItem('buddyrace.unlocked') || 0); } catch (e) { return 0; } }
 function unlock(i) { try { if (i > unlocked()) localStorage.setItem('buddyrace.unlocked', String(i)); } catch (e) { /* ignore */ } }
@@ -1165,14 +1195,15 @@ function togglePause() {
   if (state !== 'playing' && state !== 'countdown') return;
   if (menuOpen) return closeMenu();
   menuOpen = true; $('pause').classList.remove('hidden'); refreshTouch();
-  if (!net.active) stopMusic();
+  stopMusic(); pauseAudio(); // all sound and comments stop while the menu is open
   $('pauseNote').classList.toggle('hidden', !net.active);
 }
 function closeMenu() {
   if (!menuOpen) return;
   closeControls();
   menuOpen = false; $('pause').classList.add('hidden'); refreshTouch();
-  if (state === 'playing' && !net.active) startMusic();
+  resumeAudio();
+  if (state === 'playing') startMusic();
   last = performance.now();
 }
 $('btnResume').onclick = () => closeMenu();
@@ -1206,6 +1237,8 @@ function showLevels() {
   $('levelGrid').querySelectorAll('.lvl').forEach(b => b.onclick = () => startGame(+b.dataset.i));
   $('levels').classList.remove('hidden');
 }
+setVoice(setting('voice'));
+addEventListener('voicesetting', e => setVoice(e.detail));
 $('btnPlay').onclick = () => { initAudio(); $('title').classList.add('hidden'); showLevels(); };
 $('btnLevelsBack').onclick = () => { $('levels').classList.add('hidden'); state = 'title'; $('title').classList.remove('hidden'); };
 
@@ -1248,7 +1281,7 @@ $('mpCreate').onclick = async () => {
       onError: e => console.warn('peer error', e),
     });
     roster.length = 0;
-    for (let i = 0; i < 5; i++) roster.push({ slot: i, name: i === 0 ? myName() : CHARS[i].name, human: i === 0, conn: null });
+    for (let i = 0; i < CHARS.length; i++) roster.push({ slot: i, name: i === 0 ? myName() : CHARS[i].name, human: i === 0, conn: null });
     showLobby();
   } catch (e) { $('mpStatus').textContent = '❌ ' + (e.message || 'Could not connect — please try again'); }
 };
@@ -1294,7 +1327,7 @@ function applyRosterToRunners(list) {
   player = runners[net.mySlot];
 }
 function hostStart(idx) {
-  const pickS = chooseStory();
+  const pickS = chooseStory(idx);
   applyRosterToRunners(roster);
   broadcast({ t: 'start', level: idx, pick: pickS, roster: roster.map(r => ({ slot: r.slot, name: r.name, human: r.human })) });
   for (const k in remoteIn) delete remoteIn[k];
@@ -1330,7 +1363,7 @@ function applyEvent(e) {
     case 'pk': createPickup(e); break;
     case 'pt': { const k = pkById.get(e.id); if (k) removePickup(k); break; }
     case 'pr': addProjectile(e); break;
-    case 'tk': bubble(resolveRef(e.k, e.i), L(e.c), e.l, e.y); break;
+    case 'tk': { const o = resolveRef(e.k, e.i); bubble(o, L(e.c), e.l, e.y, e.c === 'fall' && o !== player); break; }
     case 'tx': bubble(resolveRef(e.k, e.i), e.x, e.l, e.y); break;
     case 'pw': powLocal(e.x, e.y, e.z, e.t); break;
     case 'sx': if (e.w >= 0 ? e.w === player.idx : Math.abs(e.z - player.z) < 25) sfx[e.n] && sfx[e.n](); if (e.n === 'hurt' && e.w === player.idx) shake = 0.3; break;

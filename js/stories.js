@@ -1,131 +1,121 @@
+import { VOICE_RATE as VR, SUPER_RATE, DOG_RATE } from './voicekey.js';
 // Stories (a different hostel drama every race), dialogue lines, and the comic intro/ending slides.
 
 // ---------------- dialogue ----------------
-// Slang lines are only used when Settings → গালাগালি is মজার (mild) or কাঁচা খিস্তি (full).
-export const LINES = {
-  chase: ['ধর ধর!', 'ধরে কেলাবো!', 'ভালো হচ্ছে না কিন্তু!', 'দাঁড়া!', 'পালাবি কোথায়?', 'মার খাবি!', 'এই দাঁড়া বলছি!',
-    'সুধীর ভাই!', 'মার গেরেছে!', 'ধর বাটাকে!', 'ধর শালা!', 'কী বললি শালা?', 'বোকা ছেলে!', 'হনু ডোচা!', 'ধর ব্যাটাকে!',
-    'আজ তোর একদিন কি আমার একদিন!', 'পিটিয়ে লাল করে দেব!', 'আজ তোকে ছাড়ব না!', 'এক চড়ে দাঁত ফেলে দেব!',
-    'গাধা কোথাকার!', 'হাঁদারাম!', 'উল্লুক!', 'ছাগল একটা!', 'ভ্যাবলা!', 'সুধীর ভাই, ধর ওকে!', 'হনু ডোচা কোথাকার!'],
-  hurt: ['উফ!', 'আহ্!', 'বাবা গো!', 'মা গো!', 'দেখে নেব!', 'দাঁড়া তোকে দেখাচ্ছি!', 'মার গেরেছে!', 'লাগল রে!', 'কোমর গেল!', 'কী বললি শালা?'],
-  dog: ['কুকুর!', 'পালা!', 'ওরে বাবা রে!', 'বাঁচাও!', 'জোরে দৌড়া!', 'সুধীর ভাই, কুকুর!'],
-  crash: ['ওরে বাবা রে!', 'দেখে চালাও!', 'উফ!', 'মাথা গেল!', 'অন্ধ নাকি!'],
-  brawl: ['ধিসুম!', 'ঢিসুম ঢিসুম!', 'নে খা!', 'এই নে!', 'আয় দেখি!', 'মার গেরেছে!', 'ধর শালা!', 'হনু ডোচা!'],
-  ko: ['অজ্ঞান!', 'তারা দেখছি…', 'আমি আর নেই…'],
-  bystander: ['এই! আস্তে!', 'কী হচ্ছে এসব?', 'পাগল নাকি!', 'দৌড়া দৌড়া!', 'আজকালকার ছেলেপিলে!', 'হোস্টেলের ছেলে নাকি?',
-    'পুলিশ ডাকব!', 'জোরে জোরে!', 'বাহ্! কী দৌড়!', 'চা খেয়ে যা!', 'রাস্তাটা কি তোদের বাপের?', 'ও মা গো!', 'সাবধানে বাবা!',
-    'কে জিতবে রে?', 'লাল জামাটা জিতবে!', 'এ কী কাণ্ড!', 'সুপার স্যারকে বলে দেব!', 'মারপিট করিস না!'],
-  super: ['ধরা পড়েছিস!', 'কান ধর!', 'ওঠবস কর!', 'চল হোস্টেলে!', 'আজ তোদের হচ্ছে!', 'বাবা-মাকে চিঠি যাবে!'],
-};
-export const KHISTI = {
-  chase: ['শালা!', 'হারামি!', 'হারামজাদা!', 'শুয়োরের বাচ্চা!', 'বোকাচোদা!', 'গান্ডু কোথাকার!', 'কুত্তার বাচ্চা!', 'বাল ছিঁড়বি?',
-    'ঢ্যামনা ছেলে!', 'চোপ শালা!', 'শালা হারামি, দাঁড়া!', 'ধর শালা বোকাচোদাকে!', 'হারামির হাতবাক্স!', 'তোর বাপের কী রে শালা?',
-    'বাল পাকা ছেলে!', 'শুয়োর কোথাকার!', 'চুতিয়া!', 'তোর মুখে ছাই, হারামি!'],
-  hurt: ['শালা মারলি!', 'হারামি! লাগে না?', 'বোকাচোদা, দেখে মার!', 'বাল! লাগল!', 'শুয়োরের বাচ্চা!'],
-  brawl: ['নে শালা!', 'খা হারামজাদা!', 'বোকাচোদা আয়!', 'গান্ডু, এদিকে আয়!'],
-  crash: ['শালা অন্ধ নাকি!', 'হারামজাদা রিকশাওয়ালা!'],
-  dog: ['শালা কুকুর!', 'হারামি কুকুর!'],
-  bystander: ['শালা পাগল!', 'হারামজাদারা!', 'বাপের রাস্তা নাকি রে শালা?', 'বোকাচোদার দল!'],
-};
-
-// Mild slang (Settings → গালাগালি: মজার) — teasing that is rude but not filthy.
-export const GALI = {
-  chase: ['কানা ডোচা!', 'বোকা পাঁঠা!', 'কালা ডোচা!', 'আলবাল বকিস না!', 'তুই ছিঁড়ে নিবি?', 'শুয়োরের নাতি!',
-    'দাঁড়া কানা ডোচা!', 'ধর বোকা পাঁঠাটাকে!', 'কালা ডোচা শুনতে পাস না?', 'হনু ডোচা কোথাকার!'],
-  hurt: ['আলবাল বকিস না!', 'তুই ছিঁড়ে নিবি?', 'কানা ডোচা নাকি?', 'বোকা পাঁঠা!'],
-  brawl: ['নে বোকা পাঁঠা!', 'খা শুয়োরের নাতি!', 'কানা ডোচা, এদিকে!', 'তুই ছিঁড়ে নিবি?'],
-  crash: ['কানা ডোচা নাকি!', 'কানা ডোচা রিকশাওয়ালা!'],
-  dog: ['বোকা পাঁঠা, কুকুর!', 'শুয়োরের নাতি কুকুর!'],
-  bystander: ['বোকা পাঁঠার দল!', 'কানা ডোচা নাকি সব?', 'আলবাল দৌড়চ্ছে!'],
-};
-// Strong slang, only with গালাগালি: কাঁচা খিস্তি.
-const KHISTI_MORE = {
-  chase: ['চুদির ভাই লখন, কোথায় ছিলি এতক্ষণ?', 'কানা চোদা!', 'পাগলাচোদা!', 'গান্ডু!', 'গুদমারানির ভাই!', 'কেলানে চোদা!', 'কানে বাড়া ভরা আছে নাকি?', 'লাওড়া বিচি তুলে চট!',
-    'বালের বন্ধু মারা!', 'তোর অণ্ডকোষ খণ্ড খণ্ড করে দেব!', 'মেরে গাঁড় ভেঙে দেব!', 'বালের দম নেই, দৌড়বি?'],
-  hurt: ['কানা চোদা, দেখে মার!', 'মেরে গাঁড় ভেঙে দেব!', 'পাগলাচোদা মারলি কেন?', 'কেলানে চোদা!', 'বালের বন্ধু মারা!'],
-  brawl: ['আয় কানা চোদা!', 'চুদির ভাই লখন, এতক্ষণ কোথায় ছিলি?', 'তোর অণ্ডকোষ খণ্ড করে দেব!', 'মেরে গাঁড় ভেঙে দেব!', 'আয় পাগলাচোদা!', 'নে গুদমারানির ভাই!', 'লাওড়া বিচি তুলে চট!'],
-  bystander: ['কানা চোদার দল!', 'পাগলাচোদার দল!', 'বালের দম নেই, দৌড়চ্ছে!', 'কানে বাড়া ভরা নাকি?'],
-};
-for (const k in KHISTI_MORE) KHISTI[k] = (KHISTI[k] || []).concat(KHISTI_MORE[k]);
-
+// Every spoken comment lives in comments.json (project root) so it can be edited by hand.
+let C = {};
+try {
+  const r = await fetch(new URL('../comments.json', import.meta.url), { cache: 'no-cache' });
+  C = await r.json();
+} catch (e) { console.error('comments.json could not be loaded (check it for a missing comma or quote):', e); }
+export const COMMENTS = C;
+const arr = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : []);
 const pickA = a => a[(Math.random() * a.length) | 0];
-// slang: 0 = off, 1 = mild (মজার গালি), 2 = full (কাঁচা খিস্তি). Old saves stored true/false.
+export const pickLine = list => { const a = arr(list); return a.length ? pickA(a) : ''; };
+
+// slang: 0 = off, anything else = on (old saves stored true/false or 1/2)
 export const slangLevel = v => (v === true ? 2 : v === false || v == null ? 0 : +v || 0);
-export function line(cat, slang, story) {
-  const lv = slangLevel(slang);
-  if (story && story.lines[cat] && Math.random() < 0.3) {
-    const f = lv >= 2 && story.khisti && story.khisti[cat];
-    return pickA(f && Math.random() < 0.5 ? story.khisti[cat] : story.lines[cat]);
-  }
-  const pools = [];
-  if (lv >= 1 && GALI[cat]) pools.push(GALI[cat]);
-  if (lv >= 2 && KHISTI[cat]) pools.push(KHISTI[cat], KHISTI[cat]);
-  if (pools.length && Math.random() < 0.55) return pickA(pickA(pools));
-  return pickA(LINES[cat] || LINES.chase);
+// game situation → key in comments.json noSlangs / slangs
+const KEY = { chase: 'friendsChase', brawl: 'friendsBrawl', fall: 'friendsFall', bystander: 'bystandersMale', bystanderF: 'bystandersFemale', super: 'superSir', driver: 'drivers' };
+// cat: chase | brawl | fall | bystander (male) | bystanderF (female) | super | driver | shopkeeper | walker
+export function line(cat, slang, story, levelNo) {
+  const on = slangLevel(slang) > 0, k = KEY[cat];
+  const NS = C.noSlangs || {}, SL = C.slangs || {}, com = C.common || {}, lk = 'l' + levelNo;
+  const choose = (b, r) => pickLine(on && arr(r).length ? r : b); // গালাগালি On → slangs only; Off → noSlangs only
+  const lvl = (com.levels || {})[lk] || {};
+  if (cat === 'shopkeeper') return pickLine(arr(lvl.shopkeepers).length && Math.random() < 0.3 ? lvl.shopkeepers : com.shopkeepers);
+  if (cat === 'walker') return pickLine(com.walkers);
+  const special = (com.levelWiseComment || {})[lk]; // this level's one special line, shouted often
+  if ((cat === 'chase' || cat === 'brawl') && typeof special === 'string' && special.trim() && Math.random() < 0.2) return special;
+  if (cat === 'chase' && story && arr((com.stories || {})[story.id]).length && Math.random() < 0.25) return pickLine(com.stories[story.id]);
+  const lvBy = cat === 'bystander' ? lvl.bystandersMale : cat === 'bystanderF' ? lvl.bystandersFemale : null;
+  if (arr(lvBy).length && Math.random() < 0.3) return pickLine(lvBy);
+  return k ? choose(NS[k], SL[k]) : '';
 }
 
 export const STORIES = [
   {
-    id: 'luchi', bn: 'লুচি চোর', en: 'The Last Luchi', item: '<div class="luchi big"></div>',
-    setup: { bg: 'bg-mess', title: 'মেস • সকাল ৮টা', bn: 'পাঁচজন বন্ধু। একটা প্লেট। একটাই লুচি।', en: 'Five friends. One plate. ONE last luchi.' },
+    id: 'luchi', open: 'mess', anim: 'gulp', bn: 'লুচি চোর', en: 'The Last Luchi', item: '<div class="luchi big"></div>',
+    setup: { bg: 'bg-mess', title: 'মেস • সকাল ৮টা', bn: 'চারজন বন্ধু। একটা প্লেট। একটাই লুচি।', en: 'Four friends. One plate. ONE last luchi.' },
     act: { bn: '{C} লুচিটা মুখে পুরে দিল!', en: '{C} stuffed the last luchi into his mouth. In one go.', say: 'মমম… দারুণ!', fx: 'ঘপাৎ!' },
     accuse: ['ওটা আমার লুচি ছিল!', 'লুচি চোর!'], accuseK: ['শালা লুচি চোর!', 'হারামি, লুচি ফেরত দে!'],
-    lines: { chase: ['লুচি চোর!', 'ধর লুচি চোরকে!', 'লুচি ফেরত দে!'] }, khisti: { chase: ['শালা লুচি চোর!', 'লুচি চোর হারামি!'] },
     ending: 'আর লুচিটা? সুপার স্যার নিজেই খেয়ে নিলেন 😋',
   },
   {
-    id: 'dim', bn: 'ডিম চোর', en: 'The Missing Egg', item: '<div class="emoji big">🥚</div>',
-    setup: { bg: 'bg-mess', title: 'রবিবার • ডিমের ঝোল', bn: 'রবিবার মানে ডিমের ঝোল!', en: 'Sunday = egg curry. Five friends, five eggs… wait, FOUR eggs?' },
+    id: 'dim', open: 'sunday', anim: 'pocket', bn: 'ডিম চোর', en: 'The Missing Egg', item: '<div class="emoji big">🥚</div>',
+    setup: { bg: 'bg-mess', title: 'রবিবার • ডিমের ঝোল', bn: 'রবিবার মানে ডিমের ঝোল!', en: 'Sunday = egg curry. Four friends, four eggs… wait, THREE eggs?' },
     act: { bn: '{C} ডিমটা পকেটে লুকিয়েছে!', en: '{C} hid an egg in his pocket. It cracked.', say: 'আমি কিছু জানি না 😇', fx: 'ক্র্যাক!' },
     accuse: ['আমার ডিম কোথায়?!', 'ডিম চোর!'], accuseK: ['ডিম চোর হারামি!', 'শালা ডিম চোর!'],
-    lines: { chase: ['ডিম চোর!', 'ডিম ফেরত দে!', 'পকেটে ডিম!'] }, khisti: { chase: ['শালা ডিম চোর!', 'ডিম চোর বোকাচোদা!'] },
     ending: 'ডিমটা পাওয়া গেল সুপার স্যারের টিফিন বাক্সে 🥚',
   },
   {
-    id: 'pen', bn: 'পেন চোর', en: 'The Lucky Pen', item: '<div class="emoji big">🖊️</div>',
+    id: 'pen', open: 'examhall', anim: 'chew', bn: 'পেন চোর', en: 'The Lucky Pen', item: '<div class="emoji big">🖊️</div>',
     setup: { bg: 'bg-room', title: 'পরীক্ষার দিন • সকাল ৯টা', bn: 'আজ পরীক্ষা! লাকি পেন রেডি।', en: 'Exam day. {V} needs his lucky pen. It is not on the table.' },
     act: { bn: '{C} পেনটা "একটু ধার" নিয়েছে…', en: '{C} "borrowed" it. And chewed the cap.', say: 'একটু ধার নিয়েছিলাম 😅', fx: 'কুট কুট!' },
     accuse: ['আমার লাকি পেন!', 'পেন চোর!'], accuseK: ['শালা পেন চোর!', 'পেন দে হারামজাদা!'],
-    lines: { chase: ['পেন চোর!', 'পেন ফেরত দে!', 'ঢাকনা চিবোলি কেন?'] }, khisti: { chase: ['শালা পেন চোর!'] },
     ending: 'পেনটা? সুপার স্যারের পকেটে। কালি শেষ 🖊️',
   },
   {
-    id: 'exam', bn: 'রেজাল্ট', en: 'Results Day', item: '<div class="emoji big">📜</div>',
+    id: 'exam', open: 'notice', anim: 'notice', bn: 'রেজাল্ট', en: 'Results Day', item: '<div class="emoji big">📜</div>',
     setup: { bg: 'bg-exam', title: 'নোটিশ বোর্ড • রেজাল্ট', bn: 'রেজাল্ট বেরিয়েছে!', en: 'Results are out on the notice board…' },
     act: { bn: '{C} ফার্স্ট! বাকি সবাই ফেল!', en: '{C} topped the class. Everyone else FAILED.', say: 'আমি ফার্স্ট! 😎', fx: '১০০/১০০!' },
     accuse: ['নিশ্চয়ই টুকলি করেছিস!', 'টপার ধর!'], accuseK: ['শালা টপার!', 'টুকলিবাজ হারামি!'],
-    lines: { chase: ['টপার ধর!', 'টুকলিবাজ!', 'নোট দিস নি কেন?'] }, khisti: { chase: ['শালা টপার!', 'টুকলিবাজ বোকাচোদা!'] },
     ending: 'সুপার স্যার সবাইকে ১০০ বার নামতা লেখালেন। টপারকেও ✍️',
   },
   {
-    id: 'prank', bn: 'প্র্যাঙ্ক', en: 'The Toothpaste Prank', item: '<div class="emoji big">🪥</div>',
+    id: 'prank', open: 'night', anim: 'smear', bn: 'প্র্যাঙ্ক', en: 'The Toothpaste Prank', item: '<div class="emoji big">🪥</div>',
     setup: { bg: 'bg-night', title: 'রাত ২টো • রুম ২০৪', bn: '{V} নাক ডেকে ঘুমোচ্ছে…', en: '2 AM. {V} is snoring. {C} has toothpaste and a marker.' },
     act: { bn: '{C} মুখে গোঁফ এঁকে দিল!', en: 'Toothpaste moustache. Marker glasses. Masterpiece.', say: 'হি হি হি 🤭', fx: 'খিক খিক!' },
     accuse: ['আমার মুখে কী করেছিস?!', 'আয়নায় দেখে আয়!'], accuseK: ['শালা হারামি, মুখে কী এঁকেছিস?!', 'বোকাচোদা প্র্যাঙ্ক!'],
-    lines: { chase: ['গোঁফ এঁকেছিস কেন?', 'মুখে টুথপেস্ট!', 'প্র্যাঙ্ক দেখাচ্ছি!'] }, khisti: { chase: ['শালা প্র্যাঙ্কবাজ!'] },
     ending: 'পরদিন সুপার স্যারের মুখেও কেউ গোঁফ এঁকে দিল… কে? 🤫',
   },
   {
-    id: 'pant', bn: 'ছেঁড়া প্যান্ট', en: 'The Torn Pant', item: '<div class="emoji big">👖</div>',
+    id: 'pant', open: 'corridor', anim: 'rip', bn: 'ছেঁড়া প্যান্ট', en: 'The Torn Pant', item: '<div class="emoji big">👖</div>',
     setup: { bg: 'bg-room', title: 'হোস্টেলের করিডোর', bn: 'মজার কুস্তি চলছিল…', en: 'Just a friendly wrestling match in the corridor…' },
     act: { bn: '{C} টানতেই {V}-এর প্যান্ট ছিঁড়ে গেল!', en: '{C} pulled. The pant went RRRIP. Right at the back.', say: 'উপ্স… 😬', fx: 'চ্যাঁৎ!' },
     accuse: ['প্যান্ট ছিঁড়ে দিলি!', 'সবাই দেখছে!'], accuseK: ['শালা প্যান্ট ছিঁড়লি!', 'হারামজাদা, নতুন প্যান্ট!'],
-    lines: { chase: ['প্যান্ট ছেঁড়া!', 'নতুন প্যান্ট কিনে দে!', 'পেছনে হাওয়া লাগছে!'] }, khisti: { chase: ['শালা প্যান্ট ছেঁড়া!'] },
     ending: 'সুপার স্যার সবাইকে সূঁচ-সুতো ধরিয়ে দিলেন 🪡',
   },
   {
-    id: 'glasses', bn: 'ভাঙা চশমা', en: 'The Broken Glasses', item: '<div class="emoji big">👓</div>',
+    id: 'glasses', open: 'wake', anim: 'crack', bn: 'ভাঙা চশমা', en: 'The Broken Glasses', item: '<div class="emoji big">👓</div>',
     setup: { bg: 'bg-room', title: 'রুম ২০৪ • দুপুর', bn: '{V} চশমাটা বিছানায় রেখেছে…', en: '{V} left his glasses on the bed. Bad idea.' },
     act: { bn: '{C} ধপ করে বসে পড়ল!', en: '{C} sat right on them.', say: 'কিছু ভাঙল নাকি? 😐', fx: 'মচাৎ!' },
     accuse: ['আমার চশমা!', 'কিছু দেখতে পাচ্ছি না!'], accuseK: ['শালা চশমা ভাঙলি!', 'অন্ধ করে দিলি হারামি!'],
-    lines: { chase: ['চশমা ভাঙলি কেন!', 'কিছু দেখতে পাচ্ছি না!', 'নতুন চশমা কিনে দে!'] }, khisti: { chase: ['শালা চশমা ভাঙা!'] },
     ending: 'নতুন চশমার টাকা? সবার হাতখরচ থেকে কাটা গেল 👓',
+  },
+  {
+    id: 'remote', open: 'common', anim: 'tvoff', bn: 'রিমোট যুদ্ধ', en: 'Remote Wars', item: '<div class="emoji big">📺</div>',
+    setup: { bg: 'bg-common', title: 'কমন রুম • রাত ৯টা', bn: 'ক্রিকেট ফাইনাল! শেষ ওভার, শেষ বল…', en: 'Cricket final. Last over. Last ball…' },
+    act: { bn: '{C} রিমোট নিয়ে সিরিয়াল চালিয়ে দিল!', en: '{C} grabbed the remote and switched to his serial.', say: 'আমার সিরিয়াল 😌', fx: 'ক্লিক!' },
+    accuse: ['ছক্কাটা মিস করালি!', 'রিমোট দে!'], accuseK: ['শালা সিরিয়ালখোর!', 'রিমোট দে হারামি!'],
+    ending: 'সুপার স্যার টিভিতেই তালা মেরে দিলেন 📺🔒',
+  },
+  {
+    id: 'sixer', open: 'campus', anim: 'sixer', bn: 'ছক্কা ও কাচ', en: 'Six and Smash', item: '<div class="emoji big">🏏</div>',
+    setup: { bg: 'bg-field', title: 'কলেজের মাঠ • বিকেল', bn: '{V}-এর ব্যাট, {V}-এর বল। ব্যাট করছে {C}।', en: '{V}\'s bat. {V}\'s ball. {C} is batting.' },
+    act: { bn: '{C}-এর ছক্কায় প্রিন্সিপালের জানলা চুরমার!', en: '{C} hit a six straight through the principal\'s window.', say: 'ওটা {V} মেরেছে 😇', fx: 'ঝনঝন!' },
+    accuse: ['আমার নাম দিলি কেন?!', 'মিথ্যুক!'], accuseK: ['শালা মিথ্যুক!', 'হারামি, নিজে মেরে আমার নাম!'],
+    ending: 'জানলার কাচের টাকা কাটা গেল চারজনের হাতখরচ থেকে 🪟',
+  },
+  {
+    id: 'cap', open: 'winter', anim: 'capon', bn: 'মাঙ্কি টুপি', en: 'The Monkey Cap', item: '<div class="emoji big">🧢</div>',
+    setup: { bg: 'bg-winter', title: 'হোস্টেল • শীতের ভোর', bn: 'হাড়কাঁপানো শীত! {V}-এর একটাই মাঙ্কি টুপি।', en: 'Freezing winter morning. {V} owns exactly one monkey cap.' },
+    act: { bn: '{C} টুপিটা পরে লেপের তলায় ঢুকে গেল!', en: '{C} pulled it on and vanished under the quilt.', say: 'আহা, কী গরম! 😌', fx: 'হাঁচ্চো!' },
+    accuse: ['আমার মাঙ্কি টুপি!', 'কান জমে গেল রে!'], accuseK: ['শালা টুপি চোর!', 'হারামি, টুপি ফেরত দে!'],
+    ending: 'সুপার স্যার সবাইকে ভোর ৫টায় ঠান্ডা জলে স্নান করালেন 🥶',
   },
 ];
 
+// each level opens with its own incident (level 1 → luchi … level 10 → results day)
+export const LEVEL_STORY = ['luchi', 'remote', 'dim', 'sixer', 'pen', 'glasses', 'prank', 'pant', 'cap', 'exam'];
+export const storyForLevel = levelIdx => {
+  const i = STORIES.findIndex(s => s.id === LEVEL_STORY[levelIdx % LEVEL_STORY.length]);
+  return i < 0 ? 0 : i;
+};
+
 // ---------------- slide building ----------------
 const FACES = { happy: '•‿•', grin: '^▽^', angry: 'ò_ó', mad: 'ಠ_ಠ', cry: 'T_T', shock: 'O_O', sleep: '-_-', smug: '¬‿¬', ouch: '>_<', dizzy: '@_@' };
-const POS = ['1%', '20%', '39%', '58%', '77%'];
+const POS = ['4%', '28%', '52%', '76%']; // 4 friends
 function buddy(c, i, face, cls = '', extra = '', left = POS[i]) {
   return `<div class="buddy ${cls}" style="left:${left};${extra}"><div class="head"><div class="face">${FACES[face] || face}</div></div>
     <div class="body" style="background:${c.colors[i]}"></div><div class="legs"></div><i class="hand l"></i><i class="hand r"></i>
@@ -135,36 +125,77 @@ function superSir(cls = '', left = '40%', extra = '') {
   return `<div class="buddy super ${cls}" style="left:${left};${extra}"><div class="head"><div class="face">◉_◉</div></div>
     <div class="body"></div><div class="legs"></div><i class="cane"></i><div class="nm">সুপার স্যার</div></div>`;
 }
-const at = i => (i >= 3 ? 'right:2%' : `left:${POS[i]}`); // keep bubbles on screen
-const bub = (text, pos, delay = 0) => `<div class="sbub" style="${pos};animation-delay:${delay}s">${text}</div>`;
+const at = i => (i >= 2 ? 'right:2%' : `left:${POS[i]}`); // keep bubbles on screen
+const AROUND = ['1%', '21%', '62%', '81%']; // friends standing either side of Super Sir in the middle
+// v = voice (clip playback rate) the bubble is spoken in; see voicekey.js
+const bub = (text, pos, delay = 0, v = 1) => `<div class="sbub" data-v="${v}" style="${pos};animation-delay:${delay}s">${text}</div>`;
 const pow = (text, pos, delay = 0) => `<div class="pow2" style="${pos};animation-delay:${delay}s">${text}</div>`;
 const fill = (s, c) => s.replace(/\{C\}/g, c.names[c.culprit]).replace(/\{V\}/g, c.names[c.victim]);
 
+// first slide of every story: a different hostel / campus moment
+function opener(kind, c) {
+  const all = [0, 1, 2, 3];
+  const row = (face, cls = '') => all.map(i => buddy(c, i, face, cls, `animation-delay:${i * 0.15}s`)).join('');
+  const O = {
+    wake: { bg: 'bg-room', title: 'বয়েজ হোস্টেল • সকাল', bn: 'অ্যালার্ম বাজছে… কেউ উঠছে না।',
+      html: `<div class="bunk" style="left:4%"></div><div class="bunk" style="left:54%"></div><div class="alarm shake">⏰</div>
+        ${all.map(i => buddy(c, i, i % 2 ? 'sleep' : 'happy', i % 2 ? 'sleepy' : 'bounce', `animation-delay:${i * 0.15}s`)).join('')}
+        <div class="zzz" style="left:26%;top:30%">Z z z</div><div class="zzz" style="left:64%;top:26%;animation-delay:.6s">Z z z</div>` },
+    mess: { bg: 'bg-mess', title: 'মেস • রাতের খাবার', bn: 'ঢং ঢং! মেসের ঘণ্টা পড়ল!',
+      html: `<div class="messbell swing">🔔</div><div class="table"></div>${all.map(i => buddy(c, i, 'grin', 'run dash' + (i ? i + 1 : ''), '', '0')).join('')}` },
+    sunday: { bg: 'bg-sunny', title: 'রবিবার • ছুটির সকাল', bn: 'ছুটির দিন! সবাই আড়মোড়া ভাঙছে।',
+      html: `<div class="sun spin">☀️</div>${row('happy', 'stretch')}` },
+    common: { bg: 'bg-common', title: 'কমন রুম', bn: 'আজ ক্রিকেট ফাইনাল! কমন রুম হাউসফুল।',
+      html: `<div class="tv on"><span>🏏 ৬ বলে ১২</span></div>${row('grin', 'bounce')}` },
+    campus: { bg: 'bg-field', title: 'কলেজের মাঠ', bn: 'ক্লাস শেষ। মাঠে ক্রিকেট!',
+      html: `<div class="gate"><span>বন্ধু মহাবিদ্যালয়</span></div><div class="ball bouncing">🏐</div>${row('grin', 'bounce')}` },
+    examhall: { bg: 'bg-exam', title: 'পরীক্ষার হল', bn: 'পরীক্ষার হলে পিন-পতন নীরবতা…',
+      html: `<div class="clock tick">🕘</div><div class="desks"></div>${row('shock')}` },
+    night: { bg: 'bg-night', title: 'রাত ২টো • রুম ২০৪', bn: 'সারা হোস্টেল ঘুমোচ্ছে… প্রায়।',
+      html: `<div class="moon">🌙</div><div class="bunk" style="left:4%"></div><div class="bunk" style="left:54%"></div>${row('sleep', 'sleepy')}
+        <div class="zzz" style="left:20%;top:28%">Z z z</div><div class="zzz" style="left:70%;top:24%;animation-delay:.6s">Z z z</div>` },
+    corridor: { bg: 'bg-corridor', title: 'হোস্টেলের করিডোর', bn: 'করিডোরে কুস্তি প্রতিযোগিতা!',
+      html: `<div class="doors"></div>${all.map(i => buddy(c, i, 'grin', 'shake', `animation-delay:${i * 0.1}s`)).join('')}${pow('কুস্তি!', 'left:40%;top:10%', 0.3)}` },
+    winter: { bg: 'bg-winter', title: 'হোস্টেল • শীতের ভোর', bn: 'হাড়কাঁপানো শীত! সবাই কাঁপছে।',
+      html: `<div class="snow"></div>${row('ouch', 'shiver')}` },
+    notice: { bg: 'bg-campus', title: 'কলেজ ক্যাম্পাস', bn: 'আজ রেজাল্ট বেরোবে! বুক ধুকপুক…',
+      html: `<div class="board shut">নোটিশ বোর্ড<br>⏳ রেজাল্ট আসছে…</div>${row('shock', 'shiver')}` },
+  };
+  const o = O[kind] || O.wake;
+  return { bg: o.bg, title: o.title, html: o.html, bn: o.bn, en: '' };
+}
+// scenery for each setting (setup slide and incident slide)
+const PROPS = {
+  'bg-mess': () => '<div class="table"></div><div class="plate"></div>',
+  'bg-exam': (c, C) => `<div class="board">রেজাল্ট<br>১. ${c.names[C]} — ১০০<br>২. বাকি সবাই — ফেল ❌</div>`,
+  'bg-common': (c, C, act) => `<div class="tv ${act ? 'switch' : 'on'}"><span>🏏 শেষ বল!</span><span class="serial">😭 সিরিয়াল</span></div>`,
+  'bg-field': (c, C, act) => `<div class="pwindow ${act ? 'smash' : ''}">🪟</div>`,
+  'bg-winter': () => '<div class="snow"></div>',
+};
+
 export function introSlides(story, c, slang) {
   const lv = slangLevel(slang), foul = lv >= 2, mild = lv === 1;
-  const C = c.culprit, V = c.victim, all = [0, 1, 2, 3, 4];
+  const C = c.culprit, V = c.victim, all = [0, 1, 2, 3];
   const others = all.filter(i => i !== C);
   const acc = foul ? story.accuseK : story.accuse;
   return [
-    { bg: 'bg-room', title: 'বয়েজ হোস্টেল • আরেকটা দিন', sound: 'bell',
-      html: `<div class="bunk" style="left:4%"></div><div class="bunk" style="left:54%"></div><div class="alarm shake">⏰</div>
-        ${all.map(i => buddy(c, i, i % 2 ? 'sleep' : 'happy', i % 2 ? 'sleepy' : 'bounce', `animation-delay:${i * 0.15}s`)).join('')}
-        <div class="zzz" style="left:26%;top:30%">Z z z</div><div class="zzz" style="left:64%;top:26%;animation-delay:.6s">Z z z</div>`,
-      bn: 'হোস্টেলে রোজ কিছু না কিছু হয়…', en: 'Every day in the hostel, something happens. Today was no different.' },
+    opener(story.open, c),
     { bg: story.setup.bg, title: story.setup.title,
-      html: `${story.setup.bg === 'bg-mess' ? '<div class="table"></div><div class="plate"></div>' : ''}${story.setup.bg === 'bg-exam' ? '<div class="board">রেজাল্ট<br>১. ' + c.names[C] + ' — ১০০<br>২. বাকি সবাই — ফেল ❌</div>' : ''}
+      html: `${PROPS[story.setup.bg] ? PROPS[story.setup.bg](c, C) : ''}
         <div class="itemSpot zoom">${story.item}</div>
         ${all.map(i => buddy(c, i, story.id === 'prank' && i === V ? 'sleep' : 'happy', i === V && story.id === 'prank' ? 'sleepy' : '', '')).join('')}`,
       bn: fill(story.setup.bn, c), en: fill(story.setup.en, c) },
     { bg: story.setup.bg, title: 'তারপর…', sound: 'hurt',
-      html: `<div class="itemSpot fly">${story.item}</div>
+      // each incident has its own animation: the item flies to the culprit (--cx) or the victim (--vx)
+      html: `${PROPS[story.setup.bg] ? PROPS[story.setup.bg](c, C, true) : ''}
+        <div class="itemSpot act-${story.anim}" style="--cx:calc(${POS[C]} + 30px);--vx:calc(${POS[V]} + 30px)">${story.item}</div>
         ${others.map(i => buddy(c, i, i === V ? 'shock' : 'mad', i === V ? 'shake' : '')).join('')}${buddy(c, C, 'smug', 'bounce')}
-        ${pow(story.act.fx, 'left:30%;top:30%', 0.5)}${bub(story.act.say, `${at(C)};top:12%`, 0.9)}`,
+        ${pow(story.act.fx, 'left:30%;top:30%', 0.9)}${bub(fill(story.act.say, c), `${at(C)};top:12%`, 1.3, VR[C])}`,
       bn: fill(story.act.bn, c), en: fill(story.act.en, c) },
     { bg: 'bg-angry', title: 'রাগে আগুন!', sound: 'hurt',
       html: `${others.map(i => buddy(c, i, 'angry', 'shake')).join('')}${buddy(c, C, 'ouch', 'shake')}
-        ${bub(acc[0], `${at(V)};top:6%`, 0.2)}${bub(acc[1], 'right:4%;top:24%', 1.0)}
-        ${bub(foul ? 'কী বললি শালা?' : mild ? 'কী বললি বোকা পাঁঠা?' : 'কী বললি?', `${at(C)};top:40%`, 1.8)}`,
+        ${bub(acc[0], `${at(V)};top:6%`, 0.2, VR[V])}${bub(acc[1], 'right:4%;top:24%', 1.0, VR[others.find(i => i !== V)])}
+        ${bub(foul ? 'কী বললি শালা?' : mild ? 'কী বললি বোকা পাঁঠা?' : 'কী বললি?', `${at(C)};top:40%`, 1.8, VR[C])}`,
       bn: 'কথা কাটাকাটি শুরু…', en: 'Words were exchanged. Loudly.' },
     { bg: 'bg-fight', title: 'ধুন্ধুমার!', sound: 'slap',
       html: `<div class="cloud shake"><div class="puff" style="left:20px;top:40px;width:120px;height:110px"></div>
@@ -175,41 +206,41 @@ export function introSlides(story, c, slang) {
       bn: 'চড়, লাথি, বালিশ, চটি — ধিসুম ধিসুম!', en: 'Slaps. Kicks. Pillows. Flying slippers.' },
     { bg: 'bg-room', title: 'হঠাৎ…', sound: 'whistle',
       html: `${superSir('bounce', '40%')}<div class="flash"></div>${pow('প্রিইইইই!', 'left:30%;top:8%', 0.1)}
-        ${all.filter(i => i !== 2).map(i => buddy(c, i, 'shock', 'shake')).join('')}${buddy(c, 2, 'shock', 'shake', 'bottom:2%', '44%')}
-        ${bub('সুপার স্যার আসছে!', 'left:2%;top:20%', 0.8)}${bub('পালা!!!', 'right:4%;top:30%', 1.3)}`,
+        ${all.map(i => buddy(c, i, 'shock', 'shake', '', AROUND[i])).join('')}
+        ${bub('সুপার স্যার আসছে!', 'left:2%;top:20%', 0.8, VR[0])}${bub('পালা!!!', 'right:4%;top:30%', 1.3, VR[3])}`,
       bn: 'সুপার স্যারের বাঁশি!', en: 'The Hostel Superintendent\'s whistle! Everybody RUN!' },
     { bg: 'bg-campus', title: 'কলেজ ক্যাম্পাস', sound: 'jump',
       html: `<div class="gate"><span>বন্ধু মহাবিদ্যালয়</span></div>
         ${buddy(c, C, 'grin', 'run dash', '', '0')}${others.map((i, k) => buddy(c, i, 'angry', `run dash${k + 2}`, '', '0')).join('')}
-        ${bub(foul ? pickA(story.khisti.chase) : mild ? pickA(GALI.chase) : 'ধর ধর!', 'left:6%;top:8%', 0.5)}${bub('ধরে কেলাবো!', 'right:6%;top:20%', 1.2)}`,
+        ${bub(line('chase', slang, story, c.levelNo) || 'ধর ধর!', 'left:6%;top:8%', 0.5, VR[others[0]])}${bub('ধরে কেলাবো!', 'right:6%;top:20%', 1.2, VR[others[1]])}`,
       bn: 'ধর ধর! পালাচ্ছে!', en: 'Out of the hostel, through the campus…' },
     { bg: 'bg-city', title: c.levelName, sound: 'bark',
       html: `<div class="skyline"><div style="height:60%;background-color:#f2d27a"></div><div style="height:85%;background-color:#e8a87c"></div>
         <div style="height:50%;background-color:#b5d3a7"></div><div style="height:95%;background-color:#a8c5e0"></div><div style="height:70%;background-color:#d98e8e"></div></div>
         <div class="emo roadmove" style="bottom:4%">🛺</div><div class="emo roadmove" style="bottom:10%;animation-delay:.8s">🚲</div>
         <div class="emo roadmove" style="bottom:2%;animation-delay:1.5s">🐕🐕🐕</div><div class="emo bounce" style="left:40%;bottom:24%">🐄</div>
-        ${bub('ঘেউ ঘেউ!', 'left:6%;top:6%', 0.3)}`,
+        ${bub('ঘেউ ঘেউ!', 'left:6%;top:6%', 0.3, DOG_RATE)}`,
       bn: 'রিকশা, অটো, টোটো, গরু, কুকুর… আর সুপার স্যার!', en: 'Into the streets! Somewhere ahead, the Superintendent is waiting…' },
   ];
 }
 
 export function endingSlides(story, c, slang) {
   const lv = slangLevel(slang), foul = lv >= 2;
-  const all = [0, 1, 2, 3, 4];
+  const all = [0, 1, 2, 3];
   return [
     { bg: 'bg-campus', title: 'শেষ সীমানা', sound: 'whistle',
-      html: `${superSir('bounce', '40%')}${all.filter(i => i !== 2).map(i => buddy(c, i, 'shock', 'shake')).join('')}
-        ${bub('ধরা পড়েছিস!', 'left:30%;top:6%', 0.3)}${bub(foul ? 'ওরে শালা…' : 'এবার কী হবে?', 'left:2%;top:30%', 1)}`,
+      html: `${superSir('bounce', '41%')}${all.map(i => buddy(c, i, 'shock', 'shake', '', AROUND[i])).join('')}
+        ${bub('ধরা পড়েছিস!', 'left:30%;top:6%', 0.3, SUPER_RATE)}${bub(foul ? 'ওরে শালা…' : 'এবার কী হবে?', 'left:2%;top:30%', 1, VR[0])}`,
       bn: 'শেষ সীমানায় দাঁড়িয়ে… সুপার স্যার!', en: 'At the finish line stood… the Superintendent.' },
     { bg: 'bg-room', title: 'শাস্তি', sound: 'beep',
       html: `${all.map(i => buddy(c, i, i === c.winner ? 'smug' : 'cry', 'situp ears', `animation-delay:${i * 0.1}s`)).join('')}
-        <div class="count">১… ২… ৩… ৫০!</div>${bub('কান ধরে ৫০ বার ওঠবস!', 'left:20%;top:6%', 0.2)}`,
+        <div class="count">১… ২… ৩… ৫০!</div>${bub('কান ধরে ৫০ বার ওঠবস!', 'left:20%;top:6%', 0.2, SUPER_RATE)}`,
       bn: 'কান ধরে ৫০ বার ওঠবস!', en: 'Fifty sit-ups. Holding your ears. All of you.' },
     { bg: 'bg-campus', title: 'হোস্টেলে ফেরা', sound: 'bell',
       html: `<div class="gate"><span>ছাত্রাবাস</span></div>
         ${all.map((i, k) => buddy(c, i, 'cry', `run march m${k}`, '', '0')).join('')}${superSir('run march m5', '0')}
-        ${bub('চল হোস্টেলে!', 'right:6%;top:8%', 0.6)}`,
-      bn: 'সবাইকে কান ধরে হোস্টেলে ফেরানো হল।', en: 'And all five were marched back to the hostel.' },
+        ${bub('চল হোস্টেলে!', 'right:6%;top:8%', 0.6, SUPER_RATE)}`,
+      bn: 'সবাইকে কান ধরে হোস্টেলে ফেরানো হল।', en: 'And all four were marched back to the hostel.' },
     { bg: 'bg-mess', title: 'শেষ কথা', sound: 'win',
       html: `${superSir('bounce', '40%')}<div class="itemSpot zoom" style="top:14%">${story.item}</div>
         ${bub(fill(story.ending, c), 'left:4%;right:4%;top:58%;white-space:normal;text-align:center', 0.3)}`,
