@@ -1,9 +1,10 @@
 {
   "name": "buddy-race-3d",
   "version": "1.0.0",
-  "description": "Buddy Race 3D — hostel friends race and fight through Kolkata streets (three.js)",
+  "description": "Buddy Race 3D \u2014 hostel friends race and fight through Kolkata streets (three.js)",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js --dev"
   }
 }

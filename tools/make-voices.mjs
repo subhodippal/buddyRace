@@ -1,4 +1,4 @@
-// Pre-renders every line in comments.json into small MP3 clips (audio/voice/<voice>/*.mp3 + audio/voice/index.json),
+// Pre-renders every line in noslangs.comment.json and slangs.comment.json into small MP3 clips (audio/voice/<voice>/*.mp3 + audio/voice/index.json),
 // so voices play in any browser, offline, even where the OS has no Bengali text-to-speech voice.
 //
 //   pip install edge-tts            (once; needs internet + ffmpeg)
@@ -25,14 +25,14 @@ export const VOICES = {
   super:      { voice: 'bn-BD-PradeepNeural',  rate: '-6%',  pitch: '-30Hz', volume: '+35%' }, // the old, deep Superintendent
   female:     { voice: 'bn-IN-TanishaaNeural', rate: '+18%', pitch: '+2Hz',  volume: '+30%' }, // bystandersFemale only
 };
-// which voice reads a list, from the keys on its path in comments.json
+// which voice reads a list, from its key in the comment files
 function voiceFor(keys) {
-  if (keys.includes('bystandersFemale')) return 'female';
+  if (keys.includes('outsiderFemale')) return 'female';
   if (keys.includes('superSir')) return 'super';
-  if (keys.includes('drivers')) return 'driver';
-  if (keys.includes('shopkeepers')) return 'shopkeeper';
-  if (keys.includes('bystandersMale') || keys.includes('walkers')) return 'bystander';
-  return 'friend'; // friendsChase, friendsBrawl, friendsFall, stories
+  if (keys.includes('driver')) return 'driver';
+  if (keys.includes('shopkeeperShout')) return 'shopkeeper';
+  if (keys.includes('outsiderMale') || keys.includes('walker') || keys.includes('levelSpeceficOutsider')) return 'bystander';
+  return 'friend'; // friendChase, friendsFight, friendFall, levelSpeceficFriends
 }
 
 // Lines typed in English letters ("kane banra vora ache naki") are shown as typed, but spoken from a Bengali-script
@@ -60,11 +60,11 @@ const BN = /[ঀ-৿]/;
 const want = Object.fromEntries(Object.keys(VOICES).map(v => [v, new Set()]));
 const walk = (v, keys) => {
   const k = keys[keys.length - 1] || '';
-  if (k.startsWith('_') || k === 'name' || k === 'stories' || k === 'levels' || k === 'shopNames') return; // shown only, never spoken
+  if (k.startsWith('_') || k === 'prequal') return; // help notes and the prequel story: shown only, never spoken
   if (typeof v === 'string') { const t = voiceKey(v); if (t && (BN.test(t) || /[A-Za-z]/.test(t))) want[voiceFor(keys)].add(t); }
   else if (v && typeof v === 'object') for (const [kk, vv] of Object.entries(v)) walk(vv, [...keys, kk]);
 };
-walk(JSON.parse(fs.readFileSync(path.join(ROOT, 'comments.json'), 'utf8')), []);
+for (const f of ['noslangs.comment.json', 'slangs.comment.json']) walk(JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8')), []);
 
 if (process.argv.includes('--list')) { for (const [v, set] of Object.entries(want)) console.log(v, set.size, [...set].slice(0, 5)); process.exit(0); }
 

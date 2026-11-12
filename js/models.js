@@ -4,11 +4,11 @@ import * as THREE from 'three';
 const matCache = new Map();
 export function mat(color, opts = {}) {
   const key = color + JSON.stringify(opts);
-  if (!matCache.has(key)) matCache.set(key, new THREE.MeshLambertMaterial({ color, ...opts }));
+  if (!matCache.has(key)) { const m = new THREE.MeshLambertMaterial({ color, ...opts }); m.userData.shared = true; matCache.set(key, m); } // shared: never disposed with a chunk
   return matCache.get(key);
 }
 const geoCache = new Map();
-function cached(key, make) { if (!geoCache.has(key)) geoCache.set(key, make()); return geoCache.get(key); }
+function cached(key, make) { if (!geoCache.has(key)) { const g = make(); g.userData.shared = true; geoCache.set(key, g); } return geoCache.get(key); }
 export const boxG = (w, h, d) => cached(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d));
 const sphG = (r, s = 10) => cached(`s${r},${s}`, () => new THREE.SphereGeometry(r, s, Math.max(6, s - 2)));
 const cylG = (r1, r2, h, s = 8) => cached(`c${r1},${r2},${h},${s}`, () => new THREE.CylinderGeometry(r1, r2, h, s));
@@ -426,7 +426,7 @@ export function makeBoat() {
 const BAR_Y = 1.35; // a standing runner's head hits this; a crawling one passes under
 // two men carrying a long bamboo ladder across the road
 export function makeLadder(half) {
-  const g = new THREE.Group(), bamboo = mat(0xc9a14a);
+  const g = new THREE.Group(), bamboo = mat(0xc9a14a), BAR_Y = 1.7; // carried high on the shoulders: obviously a crawl-under, not a jump
   const L = half * 2 + 1.4;
   for (const z of [-0.22, 0.22]) { const rail = mesh(cylG(0.06, 0.06, L, 6), bamboo, 0, BAR_Y, z, g); rail.rotation.z = Math.PI / 2; }
   for (let x = -L / 2 + 0.3; x < L / 2; x += 0.45) { const rung = mesh(cylG(0.035, 0.035, 0.44, 5), bamboo, x, BAR_Y, 0, g); rung.rotation.x = Math.PI / 2; }
@@ -465,4 +465,78 @@ export function makeFallenTree(half) {
   for (let i = 0; i < 6; i++) mesh(sphG(0.18, 5), leaf, rand2(-half, half), 0.1, rand2(-0.6, 0.6), g); // fallen leaves
   blobShadow(L, 1.2, g);
   return { root: g, w: half, d: 0.45, h: 3, kind: 'tree', full: true, overhead: true };
+}
+
+// ---------- Kolkata street life ----------
+// the old blue-and-cream Kolkata tram: long and slow, rides its rails in one lane
+export function makeTram() {
+  const g = new THREE.Group(), L = 8.5;
+  const cream = mat(0xf2e6c4), blue = mat(0x2f6fb5), dark = mat(0x2a3440);
+  mesh(boxG(2.3, 1.2, L), cream, 0, 0.95, 0, g);                         // lower body
+  mesh(boxG(2.25, 1.0, L - 0.2), blue, 0, 2.05, 0, g);                   // window band
+  for (let z = -L / 2 + 0.7; z < L / 2 - 0.5; z += 1.1) mesh(boxG(2.32, 0.65, 0.8), mat(0x9fd3ff), 0, 2.1, z, g);
+  mesh(boxG(2.4, 0.2, L + 0.2), mat(0xdcdcdc), 0, 2.65, 0, g);           // roof
+  mesh(boxG(2.32, 0.3, L), mat(0x2f6fb5), 0, 0.45, 0, g);                // skirt stripe
+  for (const z of [-L / 2 + 1.2, L / 2 - 1.2]) for (const x of [-0.85, 0.85]) { const w = mesh(cylG(0.38, 0.38, 0.18, 10), dark, x, 0.38, z, g); w.rotation.z = Math.PI / 2; }
+  const pole = mesh(boxG(0.06, 0.06, 3.2), dark, 0, 3.6, -0.6, g); pole.rotation.x = -0.45;   // trolley pole
+  mesh(boxG(0.5, 0.1, 0.5), dark, 0, 2.8, -1.8, g);
+  for (const z of [L / 2 + 0.02, -L / 2 - 0.02]) { mesh(boxG(1.2, 0.5, 0.05), mat(0xffe14a), 0, 2.2, z, g); }
+  blobShadow(2.6, L + 0.6, g);
+  return { root: g, w: 1.15, d: L / 2, h: 3, kind: 'tram', sound: 'bell', word: 'ঠং ঠং!' };
+}
+// a hand-pulled rickshaw: big spoked wheels, the puller between the shafts
+export function makeHandRickshaw() {
+  const g = new THREE.Group(), col = pick([0x7a1f12, 0x1d3f7a, 0x2a2a2a]);
+  for (const x of [0.62, -0.62]) {
+    const wh = mesh(torG(0.62, 0.05), mat(0x3a2a1a), x, 0.62, -0.2, g); wh.rotation.y = Math.PI / 2;
+    for (let i = 0; i < 6; i++) { const sp = mesh(boxG(0.03, 1.2, 0.03), mat(0x5a4a3a), x, 0.62, -0.2, g); sp.rotation.x = i * Math.PI / 6; }
+  }
+  mesh(boxG(1.1, 0.35, 0.8), mat(col), 0, 1.0, -0.25, g);                // seat box
+  mesh(boxG(1.1, 0.8, 0.08), mat(col), 0, 1.5, -0.62, g);
+  const hood = mesh(cylG(0.6, 0.6, 1.0, 10, 1, true), mat(0x111111), 0, 1.75, -0.45, g); hood.rotation.z = Math.PI / 2; hood.scale.set(1, 1, 0.7);
+  for (const x of [0.42, -0.42]) mesh(boxG(0.06, 0.06, 2.2), mat(0x6b4423), x, 0.85, 0.95, g);  // shafts
+  rider(g, pick([0xffffff, 0xd9c58c]), 0, 0.15, 1.75);                    // the puller, walking between the shafts
+  blobShadow(1.6, 3.0, g);
+  return { root: g, w: 0.75, d: 1.5, h: 2.0, kind: 'handrick', sound: 'bell', word: 'সরো সরো!' };
+}
+// a cow sitting in the middle of a bazar road, chewing — it won't move for anyone
+export function makeCowSitting() {
+  const q = quadruped(0xf2efe6, 1.8, 1.4, true);
+  const head = new THREE.Group(); head.position.set(0, 0.75, 0.95); q.body.add(head);
+  mesh(boxG(0.42, 0.42, 0.55), q.m, 0, 0, 0, head);
+  mesh(boxG(0.36, 0.22, 0.2), mat(0xe7b9a8), 0, -0.12, 0.33, head);
+  for (const s of [1, -1]) { const h = mesh(cylG(0.03, 0.06, 0.35, 5), mat(0xd9c9a0), s * 0.2, 0.32, -0.05, head); h.rotation.z = -s * 0.5; }
+  blobShadow(1.6, 2.4, q.g);
+  return { root: q.g, head, w: 0.6, d: 1.1, h: 0.95, kind: 'cowsit', word: 'হাম্বা!', sound: 'moo', jumpable: true };
+}
+export function makeGoatSitting() {
+  const q = quadruped(pick([0x2a2a2a, 0xffffff, 0x8b5a2b]), 0.95, 0.85, true);
+  const head = new THREE.Group(); head.position.set(0, 0.45, 0.5); q.body.add(head);
+  mesh(boxG(0.25, 0.28, 0.36), q.m, 0, 0, 0, head);
+  for (const s of [1, -1]) { const h = mesh(boxG(0.05, 0.22, 0.05), mat(0x777766), s * 0.08, 0.22, -0.08, head); h.rotation.x = -0.5; }
+  blobShadow(0.8, 1.2, q.g);
+  return { root: q.g, head, w: 0.35, d: 0.55, h: 0.55, kind: 'goatsit', word: 'ম্যা ম্যা!', sound: 'baa', jumpable: true };
+}
+// a line of white ducks waddling across a village road
+export function makeDucks() {
+  const g = new THREE.Group(), birds = [];
+  for (let i = 0; i < 4; i++) {
+    const h = new THREE.Group(); h.position.set((i - 1.5) * 0.45, 0, (i % 2) * 0.3); g.add(h);
+    const w = mat(0xf7f7f2);
+    mesh(sphG(0.2, 7), w, 0, 0.25, 0, h).scale.set(0.95, 0.8, 1.35);
+    mesh(sphG(0.11, 6), w, 0, 0.48, 0.2, h);
+    mesh(boxG(0.1, 0.05, 0.14), mat(0xf39c12), 0, 0.46, 0.33, h);
+    birds.push(h);
+  }
+  return { root: g, birds, w: 1.0, d: 0.4, h: 0.5, kind: 'ducks', word: 'প্যাঁক প্যাঁক!', sound: 'quack', walker: true, jumpable: true };
+}
+// construction-site traffic cones (two or three in a row)
+export function makeCones() {
+  const g = new THREE.Group();
+  for (let i = 0; i < 3; i++) {
+    const c = mesh(cylG(0.04, 0.22, 0.6, 8), mat(0xff6a00), (i - 1) * 0.7, 0.3, 0, g);
+    mesh(cylG(0.13, 0.17, 0.1, 8), mat(0xffffff), (i - 1) * 0.7, 0.32, 0, g);
+    mesh(boxG(0.45, 0.04, 0.45), mat(0x222222), (i - 1) * 0.7, 0.02, 0, g);
+  }
+  return { root: g, w: 1.15, d: 0.25, h: 0.6, kind: 'cones', jumpable: true };
 }

@@ -132,6 +132,35 @@ export const sfx = {
   whistle() { for (let i = 0; i < 3; i++) tone('square', 2400, 2300, 0.12, 0.08, i * 0.05); tone('sine', 2500, 2400, 0.6, 0.12, 0.15); },
   splash() { noise(0.5, 700, 0.6, 0.6, 'lowpass'); noise(0.3, 2500, 1, 0.3, 'bandpass', 0.05); },
   slip() { tone('sine', 300, 1400, 0.35, 0.18); noise(0.15, 300, 1, 0.3, 'lowpass', 0.35); },
+  // distant animals for the background (quieter, a little lower)
+  barkFar() { if (!sample('dog', 0.85 + Math.random() * 0.15, 0.22)) tone('sawtooth', 420, 260, 0.12, 0.05); },
+  mooFar() { if (!sample('cow', 0.9 + Math.random() * 0.1, 0.3)) animal([100, 120, 92], 1.1, [[300, 4, 1.2], [700, 6, 0.8]], 0.12); },
+  baaFar() { if (!sample('goat', 1 + Math.random() * 0.15, 0.3)) animal([380, 400, 360], 0.5, [[800, 5, 1]], 0.1); },
+  crow() { // কা কা: two or three hoarse caws
+    const n = 2 + (Math.random() * 2 | 0), p = 0.9 + Math.random() * 0.2;
+    for (let i = 0; i < n; i++) { animal([620 * p, 560 * p, 480 * p], 0.22, [[1300 * p, 3, 1.0], [2300, 4, 0.5]], 0.12, i * 0.32, 0.9); }
+  },
+  birds() { // a few quick chirps
+    const n = 3 + (Math.random() * 4 | 0);
+    for (let i = 0; i < n; i++) { const f = 2600 + Math.random() * 1600; tone('sine', f, f * (Math.random() < 0.5 ? 1.35 : 0.75), 0.07, 0.045, i * (0.09 + Math.random() * 0.08)); }
+  },
+  quack() { // প্যাঁক প্যাঁক
+    const n = 2 + (Math.random() * 2 | 0);
+    for (let i = 0; i < n; i++) animal([520, 440], 0.14, [[1100, 4, 1.1], [2400, 6, 0.4]], 0.18, i * 0.18, 0.5);
+  },
+  horn2() { // the local train's horn: two long tones
+    tone('sawtooth', 330, 330, 0.9, 0.09); tone('sawtooth', 415, 415, 0.9, 0.07);
+    tone('sawtooth', 330, 330, 1.2, 0.09, 1.1); tone('sawtooth', 415, 415, 1.2, 0.07, 1.1);
+  },
+  clack() { noise(0.05, 900, 2, 0.25, 'bandpass'); noise(0.05, 900, 2, 0.2, 'bandpass', 0.14); }, // wheels over rail joints
+  dhak() { // festival drums: a quick ঢাক pattern
+    [0, 0.18, 0.36, 0.45, 0.54, 0.72].forEach((t, i) => { tone('sine', i % 3 ? 140 : 95, 55, 0.22, 0.55, t); noise(0.06, 2200, 1, i % 2 ? 0.25 : 0.12, 'bandpass', t); });
+  },
+  thunder() { noise(2.2, 120, 0.4, 0.9, 'lowpass'); noise(1.4, 300, 0.6, 0.45, 'lowpass', 0.15); },
+  frog() { // ব্যাঙ: a low croak or two
+    const n = 1 + (Math.random() * 2 | 0);
+    for (let i = 0; i < n; i++) animal([150, 120, 140], 0.18, [[500, 5, 1.2], [1100, 6, 0.5]], 0.14, i * 0.28, 0.3);
+  },
   hen() { // "kok-kok-kokaak"
     const n = 3 + (Math.random() * 2 | 0);
     for (let i = 0; i < n; i++) animal(i === n - 1 ? [700, 1000, 800] : [650, 820], i === n - 1 ? 0.25 : 0.07, [[1200, 5, 1.2], [2600, 6, 0.5]], 0.25, i * 0.12, 0.2);
@@ -142,10 +171,10 @@ export const sfx = {
 };
 
 // ---------- Bengali voice lines ----------
-// Lines are pre-rendered MP3 clips (audio/voice/<voice>/, made by tools/make-voices.mjs from comments.json), played
+// Lines are pre-rendered MP3 clips (audio/voice/<voice>/, made by tools/make-voices.mjs from the two *.comment.json files), played
 // through Web Audio so they work in every browser and obey mute. Voices (all angry): friend, bystander, shopkeeper,
 // driver, super, female. A small playback-rate change on top makes each speaker a bit different.
-// Only lines that have a clip are heard (comments.json minus stories/levels); anything else is shown silently.
+// Only lines that have a clip are heard (everything in the comment files except prequal); anything else is shown silently.
 let bank = null, voiceBus = null, voiceOn = true;
 const clipCache = new Map();
 function loadBank() {
@@ -200,6 +229,19 @@ function pumpChat() {
   chatBusy = true;
   playLine(it.text, it.voice, it.rate).then(() => { chatBusy = false; setTimeout(pumpChat, 20); });
 }
+
+// ---------- rain: filtered noise on a loop ----------
+let rainSrc = null;
+export function startRain() {
+  if (!ctx || rainSrc) return;
+  const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200;
+  const g = ctx.createGain(); g.gain.value = 0.22;
+  src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(sfxBus); src.start();
+  rainSrc = src;
+}
+export function stopRain() { if (rainSrc) { try { rainSrc.stop(); } catch (e) { /* */ } rainSrc = null; } }
 
 // ---------- cheerful chase music (simple step sequencer) ----------
 const BPM = 150, STEP = 60 / BPM / 2;

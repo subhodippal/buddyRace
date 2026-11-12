@@ -5,9 +5,10 @@ import { Track } from './track.js';
 import { World } from './world.js';
 import { LEVELS } from './levels.js';
 import * as M from './models.js';
-import { initAudio, sfx, say as tts, setVoice, pauseAudio, resumeAudio, setMuted, isMuted, startMusic, stopMusic, setMusicFast } from './audio.js';
+import { initAudio, sfx, say as tts, setVoice, pauseAudio, resumeAudio, setMuted, isMuted, startMusic as startMusicA, stopMusic as stopMusicA, setMusicFast, startRain, stopRain } from './audio.js';
+import { Sky } from './sky.js';
 import { playSlides, closeStory } from './intro.js';
-import { STORIES, line, introSlides, endingSlides, storyForLevel, COMMENTS } from './stories.js';
+import { STORIES, line, introSlides, endingSlides, storyForLevel, FRIENDS, levelScript, levelLine } from './stories.js';
 import { VOICE_RATE, SUPER_RATE } from './voicekey.js';
 import { initInput, held, pollGamepad, openControls, closeControls, isPanelOpen, touchEnabled, bindingLabel, isTouchDevice as isTouch, setting, setSetting, steerAxis, startGyro, calibrateGyro, recenterGyro } from './input.js';
 import { net, hostRoom, joinRoom, findMatch, lanAvailable, lanRooms, lanHost, send, sendTo, broadcast, leave } from './net.js';
@@ -30,11 +31,15 @@ const ATK = ['slap', 'kick', 'stick', 'throw'];
 const BRAWL_POWS = ['ধিসুম!', 'ঢিসুম!', 'চটাস!', 'দুম!', 'ধপাস!', 'ঠাস!', 'ধাঁই!'];
 
 const CHARS = [
-  { name: 'তুমি', en: 'You', color: '#ff5533', shirt: 0xff5533, pants: 0x2d3f73, skin: 0xc68642 },
-  { name: 'বাবলু', en: 'Bablu', color: '#2e86de', shirt: 0x2e86de, lungi: 0x3c8d5a, skin: 0xa8703f },
-  { name: 'পিন্টু', en: 'Pintu', color: '#27ae60', shirt: 0x27ae60, pants: 0x6b4f2a, skin: 0xd19a66, glasses: true },
-  { name: 'হাবলু', en: 'Hablu', color: '#e1b000', shirt: 0xf1c40f, pants: 0x333333, skin: 0xb87a4b, hair: 0x2b1a10 },
+  { name: FRIENDS[0], en: 'Poltu', color: '#ff5533', shirt: 0xff5533, pants: 0x2d3f73, skin: 0xc68642 },
+  { name: FRIENDS[1], en: 'Gopal', color: '#2e86de', shirt: 0x2e86de, lungi: 0x3c8d5a, skin: 0xa8703f },
+  { name: FRIENDS[2], en: 'Kelo', color: '#27ae60', shirt: 0x27ae60, pants: 0x6b4f2a, skin: 0xd19a66, glasses: true },
+  { name: FRIENDS[3], en: 'Lombu', color: '#e1b000', shirt: 0xf1c40f, pants: 0x333333, skin: 0xb87a4b, hair: 0x2b1a10 },
 ];
+const BASE_NAMES = LEVELS.map(L => L.bn);
+function levelTitles() { // level names come from the comment file in use → prequal → lN.title
+  LEVELS.forEach((L, i) => { const t = (levelScript(i + 1, setting('slang')) || {}).title; L.bn = typeof t === 'string' && t.trim() ? t.trim() : BASE_NAMES[i]; });
+}
 
 // ---------------- renderer / scene ----------------
 const canvas = $('game');
@@ -46,9 +51,14 @@ const SKY = 0xa8dcff;
 scene.background = new THREE.Color(SKY);
 scene.fog = new THREE.Fog(SKY, 60, 175);
 const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 400);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x9a8a6a, 2.2));
+const hemi = new THREE.HemisphereLight(0xffffff, 0x9a8a6a, 2.2); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff0cc, 1.8);
 sun.position.set(-20, 40, -10); scene.add(sun);
+const sky = new Sky(scene, hemi, sun);
+let weather = { evening: false, rainy: false };
+// music + rain sound go together (both stop on pause / at the finish)
+function startMusic(kind) { startMusicA(kind); if (weather.rainy && kind !== 'action') startRain(); }
+function stopMusic() { stopMusicA(); stopRain(); }
 
 let portrait = false, baseFov = 60;
 function resize() {
@@ -89,9 +99,9 @@ const superObj = { x: 0, y: 0, z: 0 };
 const brawlCloud = makeBrawlCloud();
 
 const L = cat => line(cat, setting('slang'), story, level.id);
-// obstacles that talk (only lines from comments.json): stall carts = shopkeepers, walkers, vehicle drivers.
+// obstacles that talk (only lines from the comment files): stall carts = shopkeepers, walkers, vehicle drivers.
 // Animals, bells and horns make their sound but show no text.
-const isVehicle = o => o.vehicle || ['rickshaw', 'cycle', 'auto', 'toto', 'bike', 'taxi'].includes(o.kind);
+const isVehicle = o => o.vehicle || ['rickshaw', 'cycle', 'auto', 'toto', 'bike', 'taxi', 'tram', 'handrick'].includes(o.kind);
 const wordOf = o => (o.kind === 'thela' ? L('shopkeeper') : o.kind === 'walker' ? L('walker') : isVehicle(o) ? L('driver') : '');
 const humans = () => runners.filter(r => r.human);
 
@@ -146,8 +156,12 @@ function voice(obj, text) {
   if (obj !== player && Math.abs((obj.z || 0) - player.z) > 18) return; // only what you can hear
   tts(text, v);
 }
+const saidAt = new Map(); // text → time it was last said
 function bubble(obj, text, life = 2.2, yOff = 2.8, silent = false) {
   if (!obj || !text || menuOpen) return; // nothing new is said while paused
+  const now = performance.now();
+  if (now - (saidAt.get(text) || -1e9) < 4000) return; // the same line again within 4 s: stay quiet
+  saidAt.set(text, now);
   if (!silent) voice(obj, text);
   const who = speakerOf(obj);
   if (brawl && obj.isRunner && obj.inBrawl) { if (bubbles.length >= 3 && obj !== player) return; yOff = 4.4; } // float above the dust cloud
@@ -166,7 +180,7 @@ function talk(obj, cat, life = 1.5, yOff) { // a line from a category; clients p
 }
 let othersLeft = 3, othersNextT = 10, crawlHinted = false;
 function otherCanTalk() { return othersLeft > 0 && raceTime >= othersNextT; }
-function otherTalked() { othersLeft--; othersNextT = raceTime + rand(20, 35); }
+function otherTalked() { othersLeft--; othersNextT = raceTime + rand(10, 18); }
 function otherSay(o, text, life, yOff) { if (!text || !otherCanTalk()) return; otherTalked(); say(o, text, life, yOff); }
 function say(obj, text, life = 1.5, yOff) {
   bubble(obj, text, life, yOff);
@@ -245,7 +259,7 @@ class Runner {
     this.human = idx === 0; this.remote = false; this.netName = '';
     this.reset();
   }
-  get label() { return this === player ? 'তুমি' : (this.netName || (this.idx === 0 ? 'বন্ধু' : this.def.name)); }
+  get label() { return this === player ? 'তুমি' : (this.netName || this.def.name); }
   reset() {
     const startX = [-0.6, -2.8, 1.6, 3.8]; // 4 runners
     this.x = startX[this.idx]; this.z = 0; this.y = 0; this.vy = 0; this.vx = 0; this.speed = 0;
@@ -377,9 +391,9 @@ function updateHUD(dt) {
 }
 
 // ---------------- obstacles & pickups (created from params so clients can mirror them) ----------------
-const VEH_SPEED = { rickshaw: 3.5, cycle: 5, toto: 4.5, auto: 7, bike: 8.5, thela: 2 };
+const VEH_SPEED = { rickshaw: 3.5, cycle: 5, toto: 4.5, auto: 7, bike: 8.5, thela: 2, tram: 3, handrick: 2.5 };
 const OVERHEAD = { ladder: M.makeLadder, beam: M.makeBeam, tree: M.makeFallenTree }; // crawl under these
-const MAKERS = { rickshaw: M.makeRickshaw, cycle: M.makeCycle, auto: M.makeAuto, toto: M.makeToto, bike: M.makeBike, thela: M.makeThela,
+const MAKERS = { tram: M.makeTram, handrick: M.makeHandRickshaw, cowsit: M.makeCowSitting, goatsit: M.makeGoatSitting, ducks: M.makeDucks, cones: M.makeCones, rickshaw: M.makeRickshaw, cycle: M.makeCycle, auto: M.makeAuto, toto: M.makeToto, bike: M.makeBike, thela: M.makeThela,
   cow: M.makeCow, goat: M.makeGoat, pothole: M.makePothole, blocker: M.makeBlocker, banana: M.makeBanana, walker: M.makeWalker, hens: M.makeHens };
 function createObstacle(p) {
   let o;
@@ -407,13 +421,17 @@ function createPickup(p) {
 }
 function removePickup(k) { k.taken = true; scene.remove(k.root); pkById.delete(k.id); }
 
-const ZONE_SPAWN = {
-  campus: [['pothole', 3], ['blocker', 3], ['goat', 2], ['cycle', 1], ['bumper', 1.5], ['walker', 1.5], ['banana', 1.5], ['ladder', 0.9], ['beam', 0.9]],
-  city: [['ladder', 0.9], ['tree', 0.4], ['pothole', 2], ['blocker', 1.5], ['cow', 1.2], ['goat', 0.8], ['rickshaw', 1.2], ['cycle', 1], ['auto', 1.2], ['toto', 1.2], ['bike', 1], ['banana', 2.2], ['walker', 1.5], ['bumper', 0.8], ['drain', 0.7]],
-  market: [['ladder', 0.8], ['beam', 0.6], ['walker', 3], ['thela', 2], ['banana', 3.5], ['cow', 1], ['cycle', 1], ['rickshaw', 1.2], ['toto', 1], ['pothole', 0.6]],
-  village: [['tree', 1.1], ['beam', 0.5], ['cow', 2], ['goat', 2], ['hens', 2], ['pothole', 2], ['drain', 1.2], ['cycle', 1.2], ['toto', 0.6], ['walker', 0.8], ['banana', 1.5]],
-  river: [['tree', 0.6], ['bike', 1.5], ['auto', 1.5], ['cycle', 1.5], ['toto', 1], ['blocker', 1], ['walker', 1], ['pothole', 1], ['banana', 1.5]],
-  bridge: [['bike', 1.5], ['auto', 1], ['cycle', 1.5], ['toto', 1], ['walker', 1], ['banana', 1.2]],
+const ZONE_SPAWN = { // sitting animals, autos/totos and potholes kept rare; cycles stay common
+  campus: [['pothole', 0.6], ['blocker', 3], ['goat', 1.2], ['cycle', 1.4], ['bumper', 1.5], ['walker', 1.8], ['banana', 0.68], ['ladder', 0.9], ['beam', 0.9]],
+  city: [['cowsit', 0.15], ['handrick', 0.4], ['ladder', 0.9], ['tree', 0.4], ['pothole', 0.4], ['blocker', 1.5], ['cow', 0.6], ['goat', 0.4], ['rickshaw', 1.2], ['cycle', 1.6], ['auto', 0.5], ['toto', 0.5], ['bike', 1], ['banana', 0.99], ['walker', 1.8], ['bumper', 0.8], ['drain', 0.7]],
+  market: [['cowsit', 0.3], ['handrick', 1.0], ['ladder', 0.8], ['beam', 0.6], ['walker', 3], ['thela', 2], ['banana', 1.57], ['cow', 0.5], ['cycle', 1.5], ['rickshaw', 1.2], ['toto', 0.4], ['pothole', 0.15]],
+  village: [['ducks', 1.4], ['goatsit', 0.2], ['tree', 1.1], ['beam', 0.5], ['cow', 1], ['goat', 1], ['hens', 1.6], ['pothole', 0.4], ['drain', 1.2], ['cycle', 1.8], ['toto', 0.25], ['walker', 1], ['banana', 0.68]],
+  river: [['tree', 0.6], ['bike', 1.5], ['auto', 0.6], ['cycle', 2], ['toto', 0.4], ['blocker', 1], ['walker', 1.2], ['pothole', 0.2], ['banana', 0.68]],
+  highway: [['bike', 2], ['auto', 0.9], ['toto', 0.5], ['cycle', 1], ['blocker', 0.8], ['pothole', 0.1]],
+  flyover: [['bike', 2], ['auto', 0.8], ['toto', 0.4], ['cycle', 0.8], ['blocker', 0.6]],
+  underpass: [['bike', 1.6], ['auto', 0.6], ['cycle', 1.2], ['blocker', 0.6], ['banana', 0.3]],
+  construction: [['cones', 2.5], ['blocker', 1.5], ['pothole', 0.5], ['walker', 1], ['ladder', 0.8], ['beam', 0.8]],
+  bridge: [['bike', 1.5], ['auto', 0.4], ['cycle', 2], ['toto', 0.4], ['walker', 1.2], ['banana', 0.54]],
 };
 function weighted(list) {
   const w = ([k, v]) => (k in VEH_SPEED ? v * level.traffic : v);
@@ -423,7 +441,12 @@ function weighted(list) {
 }
 function spawnObstacle(p) { p.id = nextId++; createObstacle(p); emit({ e: 'ob', ...p }); }
 function spawnRow(s) {
-  const zone = track.zone(s), half = track.half(s), table = ZONE_SPAWN[zone] || ZONE_SPAWN.city;
+  if (track.culverts.some(c => Math.abs(s - c) < 12)) return; // keep the little bridge (পুল) clear
+  const seg = track.seg(s), zone = seg.zone, half = track.half(s), table = ZONE_SPAWN[seg.surface === 'construction' ? 'construction' : zone] || ZONE_SPAWN.city;
+  if (seg.tram && Math.random() < 0.35) { // a tram comes along its rails in the left lane
+    spawnObstacle({ kind: 'tram', x: r2(half * 0.45), z: r2(s + rand(-2, 2)), vz: r2(VEH_SPEED.tram * rand(0.9, 1.1)) });
+    return;
+  }
   const first = weighted(table);
   if (first === 'drain' || first === 'bumper' || OVERHEAD[first]) { // full-width hazards get the row to themselves
     spawnObstacle({ kind: first, x: 0, z: r2(s), half: r2(half), plank: r2(rand(-half + 1.5, half - 1.5)) });
@@ -433,13 +456,14 @@ function spawnRow(s) {
   const n = zone === 'campus' ? 1 : (Math.random() < 0.5 ? 2 : 1);
   for (let i = 0; i < n; i++) {
     let kind = i === 0 ? first : weighted(table);
-    if (kind === 'drain' || kind === 'bumper' || OVERHEAD[kind]) kind = 'pothole';
+    if (kind === 'drain' || kind === 'bumper' || OVERHEAD[kind]) kind = 'walker'; // second item in a row: never another pothole
     let x = lanes[i] + rand(-0.3, 0.3);
     const p = { kind, z: r2(s + rand(-2, 2)) };
+    if (kind === 'tram') kind = 'auto'; // trams only on their rails
     if (kind in VEH_SPEED) { p.vz = r2(VEH_SPEED[kind] * rand(0.85, 1.15)); x = clamp(x, -half + 1.6, half - 1.6); }
     if (kind === 'blocker') x = clamp(x, -half + 1.3, half - 1.3);
     if (kind === 'walker') p.vx = r2(rand(1.2, 1.8) * (Math.random() < 0.5 ? 1 : -1));
-    if (kind === 'hens') p.vx = r2(rand(2.5, 3.5) * (Math.random() < 0.5 ? 1 : -1));
+    if (kind === 'hens' || kind === 'ducks') p.vx = r2(rand(2.2, 3.2) * (Math.random() < 0.5 ? 1 : -1));
     if (kind === 'cow' || kind === 'goat') p.rot = pick([Math.PI / 2, -Math.PI / 2, 0.4, -0.5, Math.PI]);
     p.x = r2(clamp(x, -half + 0.6, half - 0.6));
     spawnObstacle(p);
@@ -604,7 +628,7 @@ function hitObstacle(r, o) {
     r.stun = 0.9; r.speed *= 0.3; r.inv = 1.6;
     pow(r.x, 0.8, r.z, 'ধপাস!'); play('land', r.z);
     talk(r, 'fall', 1.2); damage(r, 4);
-  } else if (o.kind === 'hens') {
+  } else if (o.kind === 'hens' || o.kind === 'ducks') {
     r.stun = 0.5; r.speed *= 0.5; r.inv = 1.2; o.vx = -o.vx * 1.3;
     pow(r.x, 1.2, r.z, 'কঁক কঁক! 🪶'); play('hen', r.z); damage(r, 2);
   } else if (o.walker) {
@@ -648,8 +672,9 @@ function updateObstacles(dt, authoritative) {
     if (!authoritative) continue;
     o.honkT -= dt;
     if (o.honkT < 0 && (o.vehicle || o.sound)) {
-      const near = humans().find(h => o.z - h.z > -4 && o.z - h.z < 14 && Math.abs(o.x - h.x) < 5);
-      if (near) { if (o.sound) play(o.sound, o.z); if (Math.random() < 0.3) otherSay(o, wordOf(o), 1.2, o.vehicle ? 2.9 : 2); o.honkT = rand(2.5, 5); }
+      const animal = !o.vehicle && !o.walker || o.kind === 'hens' || o.kind === 'ducks';
+      const near = humans().find(h => o.z - h.z > -6 && o.z - h.z < (animal ? 26 : 14) && Math.abs(o.x - h.x) < (animal ? 12 : 5));
+      if (near) { if (o.sound) play(o.sound, o.z); if (!animal && Math.random() < 0.3) otherSay(o, wordOf(o), 1.2, o.vehicle ? 2.9 : 2); o.honkT = animal ? rand(1.5, 3.5) : rand(2.5, 5); }
       else o.honkT = 0.4;
     }
   }
@@ -841,17 +866,19 @@ function aiInput(r, dt) {
     if (d < nd) { nd = d; near = o; }
   }
   if (near && nd < 5 && !obs && Math.random() < ai.aggro * dt * 2) ai.tx = clamp(near.x, -lim, lim);
-  if (near && Math.abs(near.z - r.z) < 1.9 && Math.abs(near.x - r.x) < 1.9 && near.inv <= 0 && Math.random() < ai.aggro * dt * 3) inp.attack = true;
-  if (r.stones > 0 && throwTarget(r) && Math.random() < dt * 0.8) inp.attack = true;
+  if (near && Math.abs(near.z - r.z) < 1.9 && Math.abs(near.x - r.x) < 1.9 && near.inv <= 0 && Math.random() < ai.aggro * dt * (near.human ? 1.6 : 3)) inp.attack = true; // gentler on players (they're close more often now)
+  if (r.stones > 0 && throwTarget(r) && Math.random() < dt * (throwTarget(r).human ? 0.45 : 0.8)) inp.attack = true;
   if (raceTime < 2.5) inp.attack = false; // no cheap shots at the start line
   inp.dirX = clamp((ai.tx - r.x) * 0.9, -1, 1);
   const hs = humans(), focus = hs.length ? hs.reduce((a, h) => a + h.z, 0) / hs.length : player.z;
   // same top speed as the players — the AI only decides *when* to spend its 4 s of sprint
   const dogClose = dogTime > 0 && dogs.some(d => Math.abs(d.z - r.z) < 6 && d.z < r.z + 1);
   inp.sprint = ai.sprintT > 0 || (dogClose && r.stamina > 0.35) || (track.finish - r.z < 90 && r.stamina > 0.2)
-    || (focus - r.z > 10 && r.stamina > 0.6);
-  if (r.z - focus > 18) inp.sprint = false;
-  inp.bias = clamp((focus - r.z) * 0.03, -0.5, 0.5); // a tiny nudge keeps the pack together
+    || (focus - r.z > 5 && r.stamina > 0.25);
+  if (r.z - focus > 4) inp.sprint = false; // ahead of the players: no sprinting away
+  // keep the pack around the player(s): far behind → run much faster, far ahead → ease off (beyond ±3 m)
+  const gap = focus - r.z;
+  inp.bias = Math.abs(gap) < 3 ? 0 : clamp((gap - Math.sign(gap) * 3) * (gap < 0 ? 0.5 : 0.3), -8, 5);
   if (hs.every(h => h.finished)) { inp.sprint = true; inp.bias = 1; }
   return inp;
 }
@@ -1061,7 +1088,23 @@ function animSuper() { // the Superintendent waits past the finish line, wagging
 }
 
 // ---------------- local-only fun: bystanders wave and comment ----------------
+// ---------------- background animal life (local only): crows in town, birds on campus, cattle in the village… ----------------
+let ambientT = 3;
+const AMBIENT = {
+  city: ['crow', 'crow', 'barkFar', 'crow'], market: ['crow', 'barkFar', 'crow', 'hen'], campus: ['birds', 'birds', 'crow'],
+  village: ['mooFar', 'baaFar', 'hen', 'birds', 'mooFar', 'quack'], river: ['birds', 'frog', 'frog', 'crow'], bridge: ['birds', 'crow'],
+  highway: ['horn'], flyover: ['horn'], underpass: ['horn'], // no animals up there / down there
+};
+function updateAmbient(dt) {
+  if (state !== 'playing' || menuOpen) return;
+  ambientT -= dt;
+  if (ambientT > 0) return;
+  ambientT = rand(3, 7);
+  const list = AMBIENT[track.zone(player.z)] || AMBIENT.city;
+  const k = pick(list); sfx[k] && sfx[k]();
+}
 function updateBystanders(dt) {
+  updateAmbient(dt);
   bystanderT -= dt;
   for (const n of world.npcs) {
     if (Math.abs(n.z - player.z) > 30) continue;
@@ -1071,7 +1114,7 @@ function updateBystanders(dt) {
     n.m.armL.rotation.x = near ? Math.sin(time * 8 + n.phase) * 0.5 : 0;
     n.talkT -= dt;
     if (setting('bystanders') && near && n.talkT < 0 && bystanderT < 0 && state === 'playing' && otherCanTalk()) {
-      n.talkT = rand(16, 30); bystanderT = rand(5, 9); otherTalked(); // bystanders share the race's 2–3 lines
+      n.talkT = rand(16, 30); bystanderT = rand(5, 9); otherTalked(); // bystanders share the race's 5–7 lines
       bubble(n, L(n.role === 'shop' ? 'shopkeeper' : n.female ? 'bystanderF' : 'bystander'), 1.8, 2.5);
     }
   }
@@ -1083,6 +1126,10 @@ function setupLevel(idx) {
   if (world) world.destroy();
   track = new Track(level);
   world = new World(scene, track, level.seed);
+  weather = sky.apply(level.time, level.weather);                    // time of day + weather of this level
+  world.setEvening(weather.evening);
+  world.mats.road.color.setHex(weather.rainy ? 0x8a8f96 : 0xffffff);  // wet road in the rain
+  world.onSound = (n, s) => { if (Math.abs(s - player.z) < 45 && state === 'playing' && !menuOpen) sfx[n] && sfx[n](); }; // local only
   world.onStatic = st => obstacles.push({ ...st, id: 0, root: null, vz: 0, vx: 0, honkT: 9 });
   if (!superM) { superM = M.makeSuper(); scene.add(superM.root); }
 }
@@ -1100,7 +1147,7 @@ function resetRace() {
   world.reset();
   const dbgS = +new URLSearchParams(location.search).get('z') || 0; // debug: ?z=600 starts further along
   runners.forEach(r => { r.reset(); r.z = dbgS; r.ai.tx = r.x; animRunner(r, 0); });
-  othersLeft = Math.random() < 0.5 ? 2 : 3; othersNextT = rand(8, 15); crawlHinted = false; // other people speak only 2–3 times a race
+  othersLeft = 5 + ((Math.random() * 3) | 0); othersNextT = rand(6, 10); crawlHinted = false; // other people: 5–7 lines a race
   nextSpawnS = dbgS + 34; nextPickupS = dbgS + 18; raceTime = 0; finishOrder = []; dogTime = 0; shake = 0; endTimer = -1;
   brawl = null; brawlCloud.g.visible = false;
   dogEvents = level.dogs.filter(z => z > dbgS + 20);
@@ -1111,28 +1158,30 @@ function resetRace() {
   if (!net.active || net.host) spawnAhead();
   updateCamera(0, true);
   if (dbgS) window.__dbg = { // test hooks, only with ?z=
-    startDogs, startBrawl, runners, get state() { return state; }, get dogs() { return dogs; }, get camera() { return camera; },
+    startDogs, startBrawl, runners, get state() { return state; }, get raceTime() { return raceTime; }, get dogs() { return dogs; }, get camera() { return camera; },
     get brawl() { return brawl; }, get track() { return track; }, get obstacles() { return obstacles; }, attack: () => doAttack(player),
     give(kind) { const p = { id: nextId++, item: kind, x: player.x, z: player.z + 5 }; createPickup(p); emit({ e: 'pk', ...p }); },
-    get player() { return player; },
+    get player() { return player; }, get world() { return world; },
     hazard(kind, ahead = 14) { const z = player.z + ahead; spawnObstacle({ kind, x: 0, z: r2(z), half: r2(track.half(z)) }); },
   };
 }
 
-function chooseStory(levelIdx) { // the level decides the story; who did it is random
-  const k = storyForLevel(levelIdx);
-  const N = CHARS.length, culprit = Math.random() < 0.25 ? 0 : 1 + ((Math.random() * (N - 1)) | 0);
-  let victim; do { victim = (Math.random() * N) | 0; } while (victim === culprit);
+function chooseStory(levelIdx) { // the level decides the story; prequal says who did it (random if it doesn't)
+  const k = storyForLevel(levelIdx), sc = levelScript(levelIdx + 1, setting('slang')) || {};
+  const N = CHARS.length, slot = n => CHARS.findIndex(c => c.name === n);
+  let culprit = slot(sc.culprit), victim = slot(sc.victim);
+  if (culprit < 0) culprit = Math.random() < 0.25 ? 0 : 1 + ((Math.random() * (N - 1)) | 0);
+  if (victim < 0 || victim === culprit) do { victim = (Math.random() * N) | 0; } while (victim === culprit);
   return { story: k, culprit, victim };
 }
-function castNames() {
-  return { names: runners.map(r => r === player ? 'তুমি' : (r.netName || r.def.name)), enNames: runners.map(r => r === player ? 'You' : (r.netName || r.def.en)),
+function castNames() { // the story slides use the four friends' names; "labels" are what the race shows (তুমি / online names)
+  return { names: runners.map(r => r.def.name), enNames: runners.map(r => r.def.en), labels: runners.map(r => r.label),
     colors: runners.map(r => r.def.color) };
 }
 
 function startGame(idx, pickS = chooseStory(idx)) {
   initAudio();
-  hideScreens(); closeMenu();
+  hideScreens(); closeMenu(); levelTitles();
   setupLevel(idx);
   resetRace();
   story = STORIES[pickS.story]; cast = { culprit: pickS.culprit, victim: pickS.victim };
@@ -1161,8 +1210,8 @@ function startCountdown() {
     if (i === 3) {
       state = 'playing'; startMusic(); refreshTouch();
       // the level's special line opens the chase
-      if (!net.active || net.host) { { const sp = ((COMMENTS.common || {}).levelWiseComment || {})['l' + level.id]; if (sp) say(runners[cast.victim], sp, 1.8); else talk(runners[cast.victim], 'chase', 1.6); } talk(runners[(cast.victim + 2) % runners.length], 'chase', 1.6); }
-      showBanner(`${story.bn}!`, 'ধর ধর!', 1.6, false);
+      if (!net.active || net.host) { { const sp = levelLine(level.id, setting('slang')); if (sp) say(runners[cast.victim], sp, 1.8); else talk(runners[cast.victim], 'chase', 1.6); } talk(runners[(cast.victim + 2) % runners.length], 'chase', 1.6); }
+      showBanner(`${level.bn}!`, 'ধর ধর!', 1.6, false);
       setTimeout(() => cd.classList.add('hidden'), 800);
       return;
     }
@@ -1186,7 +1235,7 @@ function checkEnd(dt) {
 function showEnding(order, times) {
   state = 'ending'; endTimer = -1;
   $('hud').classList.add('hidden'); closeMenu(); refreshTouch(); stopMusic();
-  const ctx = { ...castNames(), ...cast, winner: order[0] };
+  const ctx = { ...castNames(), ...cast, winner: order[0], levelName: level.bn, levelNo: level.id };
   playSlides(endingSlides(story, ctx, setting('slang')), () => showResults(order, times), { dur: 3000 });
 }
 function unlocked() { try { return +(localStorage.getItem('buddyrace.unlocked') || 0); } catch (e) { return 0; } }
@@ -1254,6 +1303,7 @@ function quitToTitle() {
 function showLevels() {
   state = 'levels';
   const un = unlocked();
+  levelTitles();
   $('levelGrid').innerHTML = LEVELS.map((lv, i) => `<button class="lvl${i > un ? ' locked' : ''}" data-i="${i}" ${i > un ? 'disabled' : ''}>
       <span class="num">${bnNum(i + 1)}</span><b>${lv.bn}</b><em>${lv.tags}</em>
       <span class="len">${bnNum(lv.segments.reduce((a, s) => a + s.len, 0))} মিটার${i > un ? ' · 🔒' : ''}</span></button>`).join('');
@@ -1539,6 +1589,7 @@ function frame(now) {
   updateCamera(dt);
   world.update(player.z - 50, player.z + 190);
   world.followGround(camera.position);
+  if (live) { world.animate(dt, player.z); sky.update(dt, camera.position, () => { if (state === 'playing' && !menuOpen) sfx.thunder(); }); }
   if (state === 'countdown' || state === 'playing') updateHUD(dt);
   updateBystanders(dt);
   updateLabels(live ? dt : 0);
@@ -1567,7 +1618,7 @@ async function boot() {
 $('btnPlay').disabled = true;
 
 // ---------------- installable app (PWA) ----------------
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
+if (!window.__DEV__ && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('service worker', e)));
 let installPrompt = null;
 const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone;

@@ -2,35 +2,56 @@ import { VOICE_RATE as VR, SUPER_RATE, DOG_RATE } from './voicekey.js';
 // Stories (a different hostel drama every race), dialogue lines, and the comic intro/ending slides.
 
 // ---------------- dialogue ----------------
-// Every spoken comment lives in comments.json (project root) so it can be edited by hand.
-let C = {};
-try {
-  const r = await fetch(new URL('../comments.json', import.meta.url), { cache: 'no-cache' });
-  C = await r.json();
-} catch (e) { console.error('comments.json could not be loaded (check it for a missing comma or quote):', e); }
-export const COMMENTS = C;
+// Every line lives in two hand-editable files in the project root:
+//   noslangs.comment.json — used when Settings → গালাগালি is Off
+//   slangs.comment.json   — used when it is On
+// Both have the same keys (shopkeeperShout, outsiderMale, outsiderFemale, friendsFight, friendChase, friendFall, superSir,
+// driver, walker, levelSpeceficFriends, levelSpeceficOutsider, prequal). Shop signboard names are in shops.json.
+async function load(file) {
+  try { const r = await fetch(new URL('../' + file, import.meta.url), { cache: 'no-cache' }); return await r.json(); }
+  catch (e) { console.error(file + ' could not be loaded (check it for a missing comma or quote):', e); return {}; }
+}
+const [NS, SL, SH] = await Promise.all([load('noslangs.comment.json'), load('slangs.comment.json'), load('shops.json')]);
+export const COMMENTS = { noSlangs: NS, slangs: SL };
+export const SHOP_NAMES = Array.isArray(SH.shopNames) ? SH.shopNames : [];
+const fileFor = slang => (slangLevel(slang) > 0 ? [SL, NS] : [NS, SL]); // [the one in use, the fallback]
+// prequel / ending script for a level (from the file in use, else the other one)
+export const levelScript = (n, slang) => {
+  for (const F of fileFor(slang)) { const L = ((F.prequal || {})['l' + n]); if (L && Array.isArray(L.story)) return L; }
+  return null;
+};
+const friendsOf = F => ((F.prequal || {}).friends);
+export const FRIENDS = [friendsOf(NS), friendsOf(SL)].find(f => Array.isArray(f) && f.length === 4)?.map(String) || ['পল্টু', 'গোপাল', 'কেলো', 'লম্বু'];
+// the level's first special friends' line (shouted when the race starts)
+export const levelLine = (n, slang) => { for (const F of fileFor(slang)) { const a = arr((F.levelSpeceficFriends || {})['l' + n]); if (a.length) return a[0]; } return ''; };
 const arr = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : []);
 const pickA = a => a[(Math.random() * a.length) | 0];
-export const pickLine = list => { const a = arr(list); return a.length ? pickA(a) : ''; };
+const lastUsed = new Map(); // text → when it was last picked
+export const pickLine = list => {
+  const a = arr(list); if (!a.length) return '';
+  const now = performance.now(), age = t => now - (lastUsed.get(t) ?? -1e9);
+  const fresh = a.filter(t => age(t) > 4000);                           // never the same line within 4 s
+  const pool = fresh.length ? fresh : a;
+  const stale = pool.filter(t => age(t) > 15000);                        // and prefer lines not heard for a while
+  const t = pickA(stale.length ? stale : pool);
+  lastUsed.set(t, now); return t;
+};
 
 // slang: 0 = off, anything else = on (old saves stored true/false or 1/2)
 export const slangLevel = v => (v === true ? 2 : v === false || v == null ? 0 : +v || 0);
-// game situation → key in comments.json noSlangs / slangs
-const KEY = { chase: 'friendsChase', brawl: 'friendsBrawl', fall: 'friendsFall', bystander: 'bystandersMale', bystanderF: 'bystandersFemale', super: 'superSir', driver: 'drivers' };
+// game situation → key in the comment files
+const KEY = { chase: 'friendChase', brawl: 'friendsFight', fall: 'friendFall', bystander: 'outsiderMale', bystanderF: 'outsiderFemale',
+  super: 'superSir', driver: 'driver', shopkeeper: 'shopkeeperShout', walker: 'walker' };
 // cat: chase | brawl | fall | bystander (male) | bystanderF (female) | super | driver | shopkeeper | walker
 export function line(cat, slang, story, levelNo) {
-  const on = slangLevel(slang) > 0, k = KEY[cat];
-  const NS = C.noSlangs || {}, SL = C.slangs || {}, com = C.common || {}, lk = 'l' + levelNo;
-  const choose = (b, r) => pickLine(on && arr(r).length ? r : b); // গালাগালি On → slangs only; Off → noSlangs only
-  const lvl = (com.levels || {})[lk] || {};
-  if (cat === 'shopkeeper') return pickLine(arr(lvl.shopkeepers).length && Math.random() < 0.3 ? lvl.shopkeepers : com.shopkeepers);
-  if (cat === 'walker') return pickLine(com.walkers);
-  const special = (com.levelWiseComment || {})[lk]; // this level's one special line, shouted often
-  if ((cat === 'chase' || cat === 'brawl') && typeof special === 'string' && special.trim() && Math.random() < 0.2) return special;
-  if (cat === 'chase' && story && arr((com.stories || {})[story.id]).length && Math.random() < 0.25) return pickLine(com.stories[story.id]);
-  const lvBy = cat === 'bystander' ? lvl.bystandersMale : cat === 'bystanderF' ? lvl.bystandersFemale : null;
-  if (arr(lvBy).length && Math.random() < 0.3) return pickLine(lvBy);
-  return k ? choose(NS[k], SL[k]) : '';
+  const k = KEY[cat]; if (!k) return '';
+  const files = fileFor(slang), lk = 'l' + levelNo;
+  const list = key => { for (const F of files) { const a = arr(F[key]); if (a.length) return a; } return []; }; // the file in use; if its list is empty, the other file's
+  const lvl = key => { for (const F of files) { const a = arr((F[key] || {})[lk]); if (a.length) return a; } return []; };
+  const lf = lvl('levelSpeceficFriends'), lo = lvl('levelSpeceficOutsider');
+  if ((cat === 'chase' && Math.random() < 0.3) || (cat === 'brawl' && Math.random() < 0.2)) if (lf.length) return pickLine(lf);
+  if ((cat === 'bystander' || cat === 'walker') && lo.length && Math.random() < 0.3) return pickLine(lo);
+  return pickLine(list(k));
 }
 
 export const STORIES = [
@@ -104,10 +125,17 @@ export const STORIES = [
     accuse: ['আমার মাঙ্কি টুপি!', 'কান জমে গেল রে!'], accuseK: ['শালা টুপি চোর!', 'হারামি, টুপি ফেরত দে!'],
     ending: 'সুপার স্যার সবাইকে ভোর ৫টায় ঠান্ডা জলে স্নান করালেন 🥶',
   },
+  {
+    id: 'singara', open: 'common', anim: 'crack', bn: 'সিঙাড়া কেস', en: 'The Samosa Case', item: '<div class="emoji big">🥟</div>',
+    setup: { bg: 'bg-common', title: 'রিসেপশন • বৃষ্টির বিকেল', bn: 'সুপার স্যারের গরম চা আর সিঙাড়া…', en: '' },
+    act: { bn: '{C} টেবিল উল্টে দিল!', en: '', say: 'উপ্স… 😬', fx: 'দুম!' },
+    accuse: ['আমায় ধাক্কা মেরেছে!', 'সিঙাড়া গেল!'], accuseK: ['শালা ধাক্কা মারলি!', 'হারামি, সিঙাড়া ফেললি!'],
+    ending: 'সুপার স্যারকে চা-সিঙাড়া আর ঘুগনি খাওয়াতে হবে 🥟',
+  },
 ];
 
-// each level opens with its own incident (level 1 → luchi … level 10 → results day)
-export const LEVEL_STORY = ['luchi', 'remote', 'dim', 'sixer', 'pen', 'glasses', 'prank', 'pant', 'cap', 'exam'];
+// each level's story id (old built-in slides, used only if a level has no prequal)
+export const LEVEL_STORY = ['luchi', 'glasses', 'pen', 'dim', 'sixer', 'remote', 'prank', 'prank', 'singara', 'exam'];
 export const storyForLevel = levelIdx => {
   const i = STORIES.findIndex(s => s.id === LEVEL_STORY[levelIdx % LEVEL_STORY.length]);
   return i < 0 ? 0 : i;
@@ -173,7 +201,129 @@ const PROPS = {
   'bg-winter': () => '<div class="snow"></div>',
 };
 
+// ---------------- slides from the comment file's prequal ----------------
+const bnNum = n => String(n).replace(/\d/g, d => '০১২৩৪৫৬৭৮৯'[d]);
+const enNum = t => String(t).replace(/[০-৯]/g, d => '০১২৩৪৫৬৭৮৯'.indexOf(d));
+const SCENE_BG = { mess: 'bg-mess', room: 'bg-room', common: 'bg-common', field: 'bg-field', exam: 'bg-exam', notice: 'bg-campus', rain: 'bg-common', night: 'bg-night', campus: 'bg-campus' };
+const SCENE_TITLE = { mess: 'হোস্টেল ক্যান্টিন', room: 'হোস্টেলের ঘর', common: 'হোস্টেল রিসেপশন', field: 'হোস্টেলের মাঠ', exam: 'হোস্টেলের ঘর', notice: 'কলেজের নোটিশ বোর্ড', rain: 'রিসেপশন • বৃষ্টি', night: 'হোস্টেল • রাত', campus: 'কলেজ ক্যাম্পাস' };
+function sceneProp(kind, act) {
+  switch (kind) {
+    case 'mess': return '<div class="table"></div><div class="plate"></div>';
+    case 'room': return '<div class="bunk" style="left:4%"></div><div class="bunk" style="left:54%"></div>';
+    case 'common': return `<div class="tv ${act ? 'switch' : 'on'}"><span>🏏 শেষ বল!</span><span class="serial">📴</span></div>`;
+    case 'rain': return '<div class="rainfx"></div><div class="tv on"><span>📺</span></div><div class="table"></div>';
+    case 'field': return `<div class="pwindow ${act ? 'smash' : ''}">🪟</div>`;
+    case 'exam': return '<div class="desks"></div>';
+    case 'notice': return '<div class="board">রেজাল্ট<br>অঙ্ক পরীক্ষা</div>';
+    case 'night': return '<div class="moon">🌙</div>';
+    default: return '';
+  }
+}
+const readMs = t => Math.min(6500, Math.max(2600, 1300 + [...t].length * 55)); // time to read a caption
+const parse = t => { const m = /^\s*([^:：]{1,16}?)\s*[:：]\s*(.+)$/.exec(t); return m ? { who: m[1].trim(), say: m[2].trim(), text: t } : { text: t.trim() }; };
+const FIGHT = /দুম দাম|ধিসুম|ঢরাম/;
+function fightSlide(text) {
+  return { bg: 'bg-fight', title: 'ধুন্ধুমার!', dur: readMs(text),
+    html: `<div class="cloud shake"><div class="puff" style="left:20px;top:40px;width:120px;height:110px"></div>
+      <div class="puff" style="left:100px;top:10px;width:130px;height:130px"></div><div class="puff" style="left:60px;top:90px;width:150px;height:100px"></div>
+      <div class="fx" style="left:10px;top:20px">👊</div><div class="fx" style="left:200px;top:40px">🦶</div><div class="fx" style="left:120px;top:150px">💥</div>
+      <div class="fx" style="left:90px;top:-20px">🩴</div><div class="fx" style="left:180px;top:130px">🪶</div><div class="fx" style="left:-10px;top:120px">🧦</div></div>
+      ${pow('ধিসুম!', 'left:6%;top:12%', 0.2)}${pow('চটাস!', 'right:8%;top:22%', 0.6)}${pow('দুম!', 'left:12%;bottom:18%', 1.0)}${pow('ঢিসুম!', 'right:10%;bottom:10%', 1.4)}`,
+    bn: text, en: '' };
+}
+function scriptIntro(sc, c, slang, n) {
+  const all = [0, 1, 2, 3], idx = name => c.names.indexOf(name);
+  const C = idx(sc.culprit) >= 0 ? idx(sc.culprit) : c.culprit, V = idx(sc.victim) >= 0 ? idx(sc.victim) : c.victim;
+  const kind = sc.scene || 'room', bg = SCENE_BG[kind] || 'bg-room';
+  const item = `<div class="emoji big">${sc.item || '❗'}</div>`;
+  const lines = sc.story.filter(t => typeof t === 'string' && t.trim()).map(parse);
+  const hot = lines.findIndex(l => l.who || FIGHT.test(l.text));
+  const out = [];
+  let buf = [], mood = 'happy', acted = false;
+  const title = () => (out.length ? '' : `লেভেল ${bnNum(n)} • ${sc.title || ''}`) || SCENE_TITLE[kind] || '';
+  const flush = act => {
+    if (!buf.length) return;
+    const text = buf.join(' '); buf = [];
+    const sir = /সুপার স্যার/.test(text);
+    const spot = act ? `<div class="itemSpot act-${sc.anim || 'gulp'}" style="--cx:calc(${POS[C]} + 30px);--vx:calc(${POS[V]} + 30px)">${item}</div>`
+      : mood === 'happy' ? `<div class="itemSpot zoom">${item}</div>` : '';
+    const face = i => (act && i === C ? 'smug' : act && i === V ? 'shock' : mood);
+    out.push({ bg, title: title(), dur: readMs(text),
+      html: `${sceneProp(kind, act || acted)}${spot}${sir ? superSir('bounce', '40%') : ''}
+        ${all.map(i => buddy(c, i, face(i), act && i === C ? 'bounce' : mood === 'happy' ? '' : 'shake', '', sir ? AROUND[i] : POS[i])).join('')}`,
+      bn: text, en: '' });
+    if (act) acted = true;
+  };
+  lines.forEach((l, i) => {
+    if (!l.who && !FIGHT.test(l.text)) { // narration: two short lines per picture
+      buf.push(l.text);
+      if (i === hot - 1) flush(true); else if (buf.length >= 2 || [...buf.join('')].length > 70) flush(false);
+      return;
+    }
+    flush(!acted && i === hot);
+    if (FIGHT.test(l.text) && !l.who) { mood = 'angry'; out.push(fightSlide(l.text)); return; }
+    const who = l.who, w = idx(who);
+    if (/সুপার স্যার/.test(who)) {
+      out.push({ bg: 'bg-room', title: 'হঠাৎ…', dur: readMs(l.say) + 400,
+        html: `${superSir('bounce', '40%')}<div class="flash"></div>${all.map(i => buddy(c, i, 'shock', 'shake', '', AROUND[i])).join('')}
+          ${bub(l.say, 'left:8%;right:8%;top:4%', 0.2, SUPER_RATE)}`,
+        bn: `সুপার স্যার: “${l.say}”`, en: '' });
+    } else if (w < 0) { // সবাই / anyone not in the four
+      out.push({ bg: 'bg-angry', title: '', dur: readMs(l.say) + 400,
+        html: `${all.map(i => buddy(c, i, 'angry', 'shake')).join('')}${bub(l.say, 'left:8%;right:8%;top:6%', 0.2, VR[0])}`,
+        bn: `${who}: “${l.say}”`, en: '' });
+    } else {
+      out.push({ bg: mood === 'happy' ? bg : 'bg-angry', title: '', dur: readMs(l.say) + 400,
+        html: `${mood === 'happy' ? sceneProp(kind, true) : ''}${all.map(i => buddy(c, i, i === w ? 'angry' : i === C ? 'ouch' : 'shock', 'shake')).join('')}
+          ${bub(l.say, `${at(w)};top:8%`, 0.2, VR[w])}`,
+        bn: `${who}: “${l.say}”`, en: '' });
+    }
+    mood = 'angry';
+  });
+  flush(false);
+  const others = all.filter(i => i !== C);
+  out.push({ bg: 'bg-campus', title: 'কলেজ ক্যাম্পাস', sound: 'jump',
+    html: `<div class="gate"><span>বন্ধু মহাবিদ্যালয়</span></div>
+      ${buddy(c, C, 'grin', 'run dash', '', '0')}${others.map((i, k) => buddy(c, i, 'angry', `run dash${k + 2}`, '', '0')).join('')}
+      ${bub(line('chase', slang, null, n) || 'ধর ধর!', 'left:6%;top:24%', 0.5, VR[others[0]])}${bub('ধরে কেলাবো!', 'right:6%;top:40%', 1.2, VR[others[1]])}`,
+    bn: `ধর ধর! ${c.names[C]} পালাচ্ছে!`, en: '' });
+  out.push(citySlide(c));
+  return out;
+}
+function citySlide(c) {
+  return { bg: 'bg-city', title: c.levelName, sound: 'bark',
+    html: `<div class="skyline"><div style="height:60%;background-color:#f2d27a"></div><div style="height:85%;background-color:#e8a87c"></div>
+      <div style="height:50%;background-color:#b5d3a7"></div><div style="height:95%;background-color:#a8c5e0"></div><div style="height:70%;background-color:#d98e8e"></div></div>
+      <div class="emo roadmove" style="bottom:4%">🛺</div><div class="emo roadmove" style="bottom:10%;animation-delay:.8s">🚲</div>
+      <div class="emo roadmove" style="bottom:2%;animation-delay:1.5s">🐕🐕🐕</div><div class="emo bounce" style="left:40%;bottom:24%">🐄</div>
+      ${bub('ঘেউ ঘেউ!', 'left:6%;top:6%', 0.3, DOG_RATE)}`,
+    bn: 'কলকাতার রাস্তায় দৌড়! সামনে কোথাও সুপার স্যার…', en: '' };
+}
+function scriptEnding(sc, c, slang) {
+  const all = [0, 1, 2, 3], foul = slangLevel(slang) >= 2;
+  const ends = (sc.end || []).filter(t => typeof t === 'string' && t.trim());
+  const out = [{ bg: 'bg-campus', title: 'হোস্টেলের গেট', sound: 'whistle',
+    html: `${superSir('bounce', '41%')}${all.map(i => buddy(c, i, 'shock', 'shake', '', AROUND[i])).join('')}
+      ${bub('ধরা পড়েছিস!', 'left:30%;top:6%', 0.3, SUPER_RATE)}${bub(foul ? 'ওরে শালা…' : 'এবার কী হবে?', 'left:2%;top:30%', 1, VR[0])}`,
+    bn: 'হোস্টেলের গেটে দাঁড়িয়ে… সুপার স্যার!', en: '' }];
+  ends.forEach((t, k) => {
+    const times = /([০-৯\d]+)\s*বার/.exec(t), last = k === ends.length - 1;
+    const count = times ? `<div class="count">১… ২… ৩… ${bnNum(enNum(times[1]))}!</div>` : '';
+    const kneel = /নিল ডাউন|দাঁড় করানো|কানমলা|ওঠবস/.test(t);
+    out.push({ bg: k === 0 ? 'bg-room' : 'bg-mess', title: k === 0 ? 'শাস্তি' : last ? 'শেষ কথা' : 'আরও শাস্তি', sound: k === 0 ? 'beep' : last ? 'win' : 'bell', dur: readMs(t) + 600,
+      html: kneel || k === 0
+        ? `${all.map(i => buddy(c, i, i === c.winner ? 'smug' : 'cry', 'situp ears', `animation-delay:${i * 0.1}s`)).join('')}${count}`
+        : `${superSir('bounce', '40%')}<div class="itemSpot zoom" style="top:14%"><div class="emoji big">${sc.item || '❗'}</div></div>
+          ${last ? bub(`প্রথম হয়েছে ${c.labels[c.winner]}… কিন্তু শাস্তি সবার!`, 'left:4%;right:4%;top:62%', 0.6) : ''}`,
+      bn: t, en: '' });
+  });
+  if (out.length === 2) out[1].html += bub(`প্রথম হয়েছে ${c.labels[c.winner]}… কিন্তু শাস্তি সবার!`, 'left:4%;right:4%;top:4%', 0.8);
+  return out;
+}
+
 export function introSlides(story, c, slang) {
+  const sc = levelScript(c.levelNo, slang);
+  if (sc) return scriptIntro(sc, c, slang, c.levelNo);
   const lv = slangLevel(slang), foul = lv >= 2, mild = lv === 1;
   const C = c.culprit, V = c.victim, all = [0, 1, 2, 3];
   const others = all.filter(i => i !== C);
@@ -225,6 +375,8 @@ export function introSlides(story, c, slang) {
 }
 
 export function endingSlides(story, c, slang) {
+  const sc = levelScript(c.levelNo, slang);
+  if (sc) return scriptEnding(sc, c, slang);
   const lv = slangLevel(slang), foul = lv >= 2;
   const all = [0, 1, 2, 3];
   return [

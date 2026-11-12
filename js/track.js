@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 
 const STEP = 1, TAIL = 280;
+export const CULVERT_HALF = 8, CULVERT_HUMP = 0.6; // পুল: 16 m long, 0.6 m high in the middle
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Track {
@@ -17,6 +18,20 @@ export class Track {
     const last = segs[segs.length - 1];
     segs.push({ len: TAIL, s0, half: last.half, zone: last.zone === 'bridge' ? 'city' : last.zone, surface: last.surface === 'bridge' ? 'asphalt' : last.surface, tail: true });
     this.segs = segs;
+    // small bridges (পুল) where a canal crosses under the road: 2–3 per level, never on the big bridge / riverside,
+    // a junction, the college gate or near the start and finish. Seeded by the level, so every player gets the same.
+    let seed = (level.seed || 1) * 9973;
+    const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const ok = sg => !sg.tail && !sg.junction && !['bridge', 'river', 'flyover', 'underpass', 'highway'].includes(sg.zone) && !sg.sights && sg.len >= 90;
+    const cands = segs.filter(ok).sort(() => rnd() - 0.5);
+    this.culverts = [];
+    for (const sg of cands) {
+      if (this.culverts.length >= (level.id > 4 ? 3 : 2)) break;
+      const c = Math.round(sg.s0 + sg.len * (0.35 + rnd() * 0.3));
+      if (c < 60 || c > s0 - 70 || this.culverts.some(o => Math.abs(o - c) < 120) || (sg === segs[0] && sg.zone === 'campus')) continue;
+      this.culverts.push(c);
+    }
+    this.culverts.sort((a, b) => a - b);
     const n = this.n = Math.ceil((s0 + TAIL) / STEP) + 2;
     this.X = new Float32Array(n); this.Z = new Float32Array(n); this.TH = new Float32Array(n);
     this.H = new Float32Array(n); this.HALF = new Float32Array(n); this.SEG = new Uint8Array(n);
@@ -30,9 +45,12 @@ export class Track {
       let h = 0;
       if (sg.hill) h = sg.hill * sn * sn * (sg.bumps ? 0.55 + 0.45 * Math.sin(2 * Math.PI * sg.bumps * t - Math.PI / 2) : 1);
       if (sg.surface === 'soil') h += 0.13 * sn * Math.sin(s * 0.9) * Math.sin(s * 0.37); // ruts
+      for (const c of this.culverts) { const u = (s - c) / CULVERT_HALF; if (Math.abs(u) < 1) h += CULVERT_HUMP * Math.cos(u * Math.PI / 2) ** 2; } // the hump of the পুল
       this.H[i] = h;
       raw[i] = sg.half;
-      const kappa = sg.turn ? (sg.turn * Math.PI / 180) / sg.len * (Math.PI / 2) * sn : 0; // smooth in/out
+      let kappa = sg.turn ? (sg.turn * Math.PI / 180) / sg.len * (Math.PI / 2) * sn : 0; // smooth in/out
+      // long straight stretches get a gentle S-bend (heading swings up to ±13° and comes back, so the turns stay put)
+      if (!sg.turn && !sg.tail && !['bridge', 'flyover', 'underpass'].includes(sg.zone) && sg.len >= 90) kappa += (k % 2 ? 1 : -1) * (13 * Math.PI / 180) * Math.PI / sg.len * Math.sin(2 * Math.PI * t);
       th += kappa * STEP; x += Math.sin(th) * STEP; z += Math.cos(th) * STEP;
     }
     const W = 14; // ease road-width changes

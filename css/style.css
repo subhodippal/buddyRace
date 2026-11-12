@@ -539,6 +539,9 @@ body.portrait #zone { top: 120px; }
   background-size: 60px 60px, 37px 37px; animation: snow 3s linear infinite; }
 @keyframes snow { to { background-position: 10px 60px, -8px 37px; } }
 .shiver { animation: shiver .09s linear infinite alternate; }
+.rainfx { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(105deg, transparent 48%, rgba(120,150,190,.55) 49%, transparent 51%), linear-gradient(105deg, transparent 48%, rgba(120,150,190,.4) 49%, transparent 51%);
+  background-size: 26px 40px, 41px 63px; animation: rainfx .5s linear infinite; }
+@keyframes rainfx { to { background-position: -10px 40px, -16px 63px; } }
 @keyframes shiver { to { transform: translateX(3px); } }
 .board.shut { text-align: center; animation: wob2 .8s ease-in-out infinite alternate; }
 .pwindow { position: absolute; right: 6%; top: 8%; font-size: 64px; }

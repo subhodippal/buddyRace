@@ -5,11 +5,11 @@ let active = null;
 export function storyOpen() { return !!active; }
 export function closeStory() { if (active) active(); }
 
-export function playSlides(slides, onDone, { dur = 2700, skipLabel = 'Skip »' } = {}) {
+export function playSlides(slides, onDone, { dur = 2700, skipLabel = 'বাদ দাও »' } = {}) {
   const root = document.getElementById('story');
   const wrap = document.getElementById('slides');
   const dots = document.getElementById('dots');
-  wrap.innerHTML = slides.map(s => `<div class="slide"><div class="stage ${s.bg}"><div class="sceneTitle">${s.title}</div>${s.html}</div>
+  wrap.innerHTML = slides.map(s => `<div class="slide"><div class="stage ${s.bg}">${s.title ? `<div class="sceneTitle">${s.title}</div>` : ''}${s.html}</div>
       <div class="caption"><span class="bn">${s.bn}</span></div></div>`).join('');
   dots.innerHTML = slides.map(() => '<i></i>').join('');
   document.getElementById('storySkip').textContent = skipLabel;

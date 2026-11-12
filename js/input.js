@@ -22,7 +22,7 @@ const DEFAULTS = {
   pad: { left: ['a0-', 'b14'], right: ['a0+', 'b15'], sprint: ['b7', 'b5'], jump: ['b0', ''], duck: ['b1', 'b13'], attack: ['b2', ''],
     cam: ['b3', ''], pause: ['b9', ''], mute: ['b8', ''] },
   touch: { mode: 'auto', scheme: 'gyro', size: 1, opacity: 0.9, leftHanded: false, gyroLevel: 4, gyroInvert: false, gyroTilt: true, gyroTiltInvert: false },
-  game: { slang: 0, bystanders: true, voice: true, name: '' },
+  game: { slang: 2, slangChosen: false, bystanders: true, voice: true, name: '' }, // slang is on unless the player turns it off
 };
 const clone = o => JSON.parse(JSON.stringify(o));
 let cfg = load();
@@ -37,6 +37,7 @@ function load() {
     }
     if ((c.pad.attack || []).includes('b1') && (c.pad.duck || []).includes('b1')) c.pad.attack = c.pad.attack.map(b => (b === 'b1' ? '' : b)); // B is crawl now
     if ('foul' in c.game) { if (c.game.slang == null || !('slang' in (s.game || {}))) c.game.slang = c.game.foul ? 2 : 0; delete c.game.foul; }
+    if (!c.game.slangChosen) c.game.slang = 2; // never picked in Settings (older saves stored the old default, off) → on
   } catch (e) { /* storage blocked — use defaults */ }
   return c;
 }
@@ -336,7 +337,7 @@ function renderPanel() {
         <label class="switch"><input type="checkbox" id="gBy" ${g.bystanders ? 'checked' : ''}><i></i></label></div>
       <div class="setRow"><span><b>Bengali voice (বাংলা আওয়াজ)</b><small>Comments &amp; slang are spoken aloud</small></span>
         <label class="switch"><input type="checkbox" id="gVo" ${g.voice ? 'checked' : ''}><i></i></label></div>`;
-    body.querySelectorAll('[data-slang]').forEach(b => b.onclick = () => { g.slang = +b.dataset.slang; save(); renderPanel(); });
+    body.querySelectorAll('[data-slang]').forEach(b => b.onclick = () => { g.slang = +b.dataset.slang; g.slangChosen = true; save(); renderPanel(); });
     body.querySelector('#gBy').onchange = e => { g.bystanders = e.target.checked; save(); };
     body.querySelector('#gVo').onchange = e => { g.voice = e.target.checked; save(); window.dispatchEvent(new CustomEvent('voicesetting', { detail: g.voice })); };
   } else if (activeTab === 'kb') {
