@@ -79,21 +79,31 @@ function animal(f0s, dur, formants, vol = 0.3, delay = 0, breath = 0.15) {
 }
 
 // ---------- real animal recordings (audio/animals, see CREDITS.md) ----------
-const SAMPLES = { dog: ['dog1', 'dog2', 'dog3'], cow: ['cow'], goat: ['goat'] };
+const SAMPLES = { dog: ['dog1', 'dog2', 'dog3'], cow: ['cow1', 'cow2'], goat: ['goat1', 'goat2', 'goat3', 'goat4'] };
 const sampleBufs = {};
 function loadSamples() {
   for (const [k, files] of Object.entries(SAMPLES)) sampleBufs[k] = [];
   for (const [k, files] of Object.entries(SAMPLES)) for (const f of files)
     fetch(`audio/animals/${f}.mp3`).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => sampleBufs[k].push(buf)).catch(() => {});
 }
-let lastSample = {};
-function sample(k, rate = 1, vol = 0.8) { // true if a recording was played
+let busyUntil = {}, lastPick = {};
+function sample(k, rate = 1, vol = 0.8, far = false) { // true if a recording was played
   const list = sampleBufs[k];
   if (!ctx || !list || !list.length) return false;
-  if (performance.now() - (lastSample[k] || 0) < 350) return true; // don't stack the same animal
-  lastSample[k] = performance.now();
-  const s = ctx.createBufferSource(); s.buffer = list[(Math.random() * list.length) | 0]; s.playbackRate.value = rate;
-  const g = ctx.createGain(); g.gain.value = vol; s.connect(g); g.connect(sfxBus); s.start();
+  const now = performance.now();
+  if (now < (busyUntil[k] || 0)) return true; // this animal is still calling: don't stack another on top
+  let i = (Math.random() * list.length) | 0;
+  if (list.length > 1 && i === lastPick[k]) i = (i + 1) % list.length; // a different recording each time
+  lastPick[k] = i;
+  const buf = list[i];
+  busyUntil[k] = now + Math.max(350, buf.duration / rate * 700); // most of the call
+  const s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate;
+  const g = ctx.createGain(); g.gain.value = vol;
+  if (far) { // far away: duller and softer
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = k === 'goat' ? 2200 : 1200;
+    s.connect(lp); lp.connect(g);
+  } else s.connect(g);
+  g.connect(sfxBus); s.start();
   return true;
 }
 
@@ -117,12 +127,12 @@ export const sfx = {
   },
   horn() { tone('square', 420, 420, 0.18, 0.1); tone('square', 350, 350, 0.25, 0.1, 0.22); },
   bell() { tone('sine', 2100, 2000, 0.25, 0.15); tone('sine', 2100, 2000, 0.25, 0.15, 0.14); },
-  moo() { if (sample('cow', 0.95 + Math.random() * 0.1, 0.9)) return;
+  moo() { if (sample('cow', 0.97 + Math.random() * 0.06, 0.95)) return;
     // "hammmbaaa": closed hum opening into a long falling 'aa'
     animal([105, 118, 132, 120, 96], 1.3, [[300, 4, 1.2], [700, 6, 0.9], [1150, 8, 0.4]], 0.4, 0, 0.08);
     animal([210, 236, 264, 240, 192], 1.3, [[700, 6, 0.25]], 0.12, 0, 0);
   },
-  baa() { if (sample('goat', 0.95 + Math.random() * 0.15, 0.85)) return;
+  baa() { if (sample('goat', 0.96 + Math.random() * 0.08, 0.85)) return;
     // goat "myaa-a-a": high bleat with heavy tremolo
     animal([380, 420, 400, 360], 0.7, [[800, 5, 1.2], [1800, 6, 0.6], [2800, 8, 0.3]], 0.3, 0, 0.1);
     for (let i = 0; i < 5; i++) animal([400, 370], 0.11, [[900, 4, 0.8]], 0.12, 0.1 + i * 0.12, 0);
@@ -133,9 +143,9 @@ export const sfx = {
   splash() { noise(0.5, 700, 0.6, 0.6, 'lowpass'); noise(0.3, 2500, 1, 0.3, 'bandpass', 0.05); },
   slip() { tone('sine', 300, 1400, 0.35, 0.18); noise(0.15, 300, 1, 0.3, 'lowpass', 0.35); },
   // distant animals for the background (quieter, a little lower)
-  barkFar() { if (!sample('dog', 0.85 + Math.random() * 0.15, 0.22)) tone('sawtooth', 420, 260, 0.12, 0.05); },
-  mooFar() { if (!sample('cow', 0.9 + Math.random() * 0.1, 0.3)) animal([100, 120, 92], 1.1, [[300, 4, 1.2], [700, 6, 0.8]], 0.12); },
-  baaFar() { if (!sample('goat', 1 + Math.random() * 0.15, 0.3)) animal([380, 400, 360], 0.5, [[800, 5, 1]], 0.1); },
+  barkFar() { if (!sample('dog', 0.9 + Math.random() * 0.1, 0.25, true)) tone('sawtooth', 420, 260, 0.12, 0.05); },
+  mooFar() { if (!sample('cow', 0.96 + Math.random() * 0.06, 0.4, true)) animal([100, 120, 92], 1.1, [[300, 4, 1.2], [700, 6, 0.8]], 0.12); },
+  baaFar() { if (!sample('goat', 0.97 + Math.random() * 0.08, 0.35, true)) animal([380, 400, 360], 0.5, [[800, 5, 1]], 0.1); },
   crow() { // কা কা: two or three hoarse caws
     const n = 2 + (Math.random() * 2 | 0), p = 0.9 + Math.random() * 0.2;
     for (let i = 0; i < n; i++) { animal([620 * p, 560 * p, 480 * p], 0.22, [[1300 * p, 3, 1.0], [2300, 4, 0.5]], 0.12, i * 0.32, 0.9); }
