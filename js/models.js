@@ -421,3 +421,48 @@ export function makeBoat() {
   rider(g, 0xffffff, 0, 0.2, 1.6);
   return g;
 }
+
+// ---------- overhead hazards: crawl under them (full road width, too high to jump) ----------
+const BAR_Y = 1.35; // a standing runner's head hits this; a crawling one passes under
+// two men carrying a long bamboo ladder across the road
+export function makeLadder(half) {
+  const g = new THREE.Group(), bamboo = mat(0xc9a14a);
+  const L = half * 2 + 1.4;
+  for (const z of [-0.22, 0.22]) { const rail = mesh(cylG(0.06, 0.06, L, 6), bamboo, 0, BAR_Y, z, g); rail.rotation.z = Math.PI / 2; }
+  for (let x = -L / 2 + 0.3; x < L / 2; x += 0.45) { const rung = mesh(cylG(0.035, 0.035, 0.44, 5), bamboo, x, BAR_Y, 0, g); rung.rotation.x = Math.PI / 2; }
+  const carriers = [];
+  for (const s of [-1, 1]) {
+    const b = makeBuddy({ skin: pick(skinTones), shirt: pick(clothes), lungi: pick([0x2e86de, 0x27ae60, 0xffffff]), hair: 0x111111 });
+    b.root.position.set(s * (half + 0.45), 0, 0); b.root.rotation.y = s > 0 ? -Math.PI / 2 : Math.PI / 2;
+    b.armL.rotation.set(-2.9, 0, 0); b.armR.rotation.set(-2.9, 0, 0); // holding the ladder up
+    g.add(b.root); carriers.push(b);
+  }
+  blobShadow(L, 0.8, g);
+  return { root: g, carriers, w: half, d: 0.3, h: 3, kind: 'ladder', full: true, overhead: true };
+}
+// a long wooden beam resting on two sawhorses
+export function makeBeam(half) {
+  const g = new THREE.Group(), wood = mat(0x8b5a2b), dark = mat(0x5a3a1c);
+  const L = half * 2 + 0.6;
+  const beam = mesh(boxG(L, 0.32, 0.36), wood, 0, BAR_Y + 0.05, 0, g);
+  beam.rotation.z = rand2(-0.03, 0.03);
+  for (const x of [-half + 0.2, half - 0.2]) for (const s of [-1, 1]) {
+    const leg = mesh(boxG(0.1, BAR_Y + 0.1, 0.1), dark, x + s * 0.25, BAR_Y / 2, 0, g); leg.rotation.z = s * 0.3;
+  }
+  for (let i = 0; i < 4; i++) mesh(boxG(0.4, 0.05, 0.38), dark, rand2(-half, half), BAR_Y + 0.22, 0, g); // nails & patches
+  blobShadow(L, 0.6, g);
+  return { root: g, w: half, d: 0.3, h: 3, kind: 'beam', full: true, overhead: true };
+}
+// a big tree fallen across the road, held up by its own branches
+export function makeFallenTree(half) {
+  const g = new THREE.Group(), bark = mat(0x6b4a2b), leaf = mat(0x3f8f3a), leaf2 = mat(0x2f7d32);
+  const L = half * 2 + 3;
+  const trunk = mesh(cylG(0.32, 0.45, L, 9), bark, 0.8, BAR_Y + 0.2, 0, g); trunk.rotation.z = Math.PI / 2 + 0.04;
+  const side = Math.random() < 0.5 ? -1 : 1;
+  for (let i = 0; i < 7; i++) mesh(sphG(rand2(0.9, 1.4), 7), i % 2 ? leaf : leaf2, side * (half + rand2(0.5, 2.2)), rand2(0.8, 2.4), rand2(-1.2, 1.2), g); // the crown on the roadside
+  const roots = mesh(cylG(0.2, 0.7, 0.6, 7), bark, -side * (half + 1.2), BAR_Y, 0, g); roots.rotation.z = side * Math.PI / 2;
+  for (const x of [-half * 0.6, half * 0.3]) { const prop = mesh(cylG(0.08, 0.12, BAR_Y + 0.2, 5), bark, x, BAR_Y / 2, 0.15, g); prop.rotation.z = rand2(-0.35, 0.35); }
+  for (let i = 0; i < 6; i++) mesh(sphG(0.18, 5), leaf, rand2(-half, half), 0.1, rand2(-0.6, 0.6), g); // fallen leaves
+  blobShadow(L, 1.2, g);
+  return { root: g, w: half, d: 0.45, h: 3, kind: 'tree', full: true, overhead: true };
+}

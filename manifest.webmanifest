@@ -1,10 +1,22 @@
 {
-  "name": "Buddy Race — বাডি রেস",
+  "id": "./",
+  "name": "বাডি রেস — Buddy Race",
   "short_name": "বাডি রেস",
-  "start_url": "./",
+  "description": "হোস্টেলের চার বন্ধুর মজার দৌড় আর মারপিট — একা, অনলাইনে বা একই Wi-Fi-তে।",
+  "lang": "bn",
+  "dir": "ltr",
+  "start_url": "./?source=pwa",
   "scope": "./",
   "display": "fullscreen",
-  "orientation": "landscape",
-  "background_color": "#8fd3ff",
-  "theme_color": "#f7b733"
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#ff8a3d",
+  "theme_color": "#f7b733",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
 }

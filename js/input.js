@@ -7,6 +7,7 @@ export const ACTIONS = [
   { id: 'right', bn: 'Move right', en: 'Steer right', hold: true },
   { id: 'sprint', bn: 'Sprint', en: 'Hold to run fast', hold: true },
   { id: 'jump', bn: 'Jump', en: 'Jump over things' },
+  { id: 'duck', bn: 'Crawl', en: 'Hold to crawl under ladders, beams, fallen trees', hold: true },
   { id: 'attack', bn: 'Hit', en: 'Slap · kick · stick · throw' },
   { id: 'cam', bn: 'Camera', en: 'Change camera' },
   { id: 'pause', bn: 'Pause', en: 'Open the menu' },
@@ -15,12 +16,12 @@ export const ACTIONS = [
 const HOLD = new Set(ACTIONS.filter(a => a.hold).map(a => a.id));
 
 const DEFAULTS = {
-  keys: { left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], sprint: ['Shift', 'ArrowUp'], jump: ['Space', ''],
+  keys: { left: ['KeyA', 'ArrowLeft'], right: ['KeyD', 'ArrowRight'], sprint: ['Shift', 'ArrowUp'], jump: ['Space', ''], duck: ['KeyS', 'ArrowDown'],
     attack: ['Control', 'KeyF'], cam: ['KeyC', ''], pause: ['Escape', 'KeyP'], mute: ['KeyM', ''] },
   // standard gamepad mapping: b0=A b1=B b2=X b3=Y b4=LB b5=RB b6=LT b7=RT b9=Start b14/15=D-pad ←/→, a0=left stick X
-  pad: { left: ['a0-', 'b14'], right: ['a0+', 'b15'], sprint: ['b7', 'b5'], jump: ['b0', ''], attack: ['b2', 'b1'],
+  pad: { left: ['a0-', 'b14'], right: ['a0+', 'b15'], sprint: ['b7', 'b5'], jump: ['b0', ''], duck: ['b1', 'b13'], attack: ['b2', ''],
     cam: ['b3', ''], pause: ['b9', ''], mute: ['b8', ''] },
-  touch: { mode: 'auto', scheme: 'slider', size: 1, opacity: 0.9, leftHanded: false, gyroSens: 25, gyroInvert: false },
+  touch: { mode: 'auto', scheme: 'gyro', size: 1, opacity: 0.9, leftHanded: false, gyroLevel: 4, gyroInvert: false, gyroTilt: true, gyroTiltInvert: false },
   game: { slang: 0, bystanders: true, voice: true, name: '' },
 };
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -31,6 +32,10 @@ function load() {
     const s = JSON.parse(localStorage.getItem(STORE) || 'null');
     if (s) for (const k of ['keys', 'pad', 'touch', 'game']) Object.assign(c[k], s[k] || {});
     if (c.game.slang === 1) c.game.slang = 2; // old 3-step setting → on
+    if ('gyroSens' in c.touch) { // old setting was 'degrees for a full turn'; 25 was the old default → now the gentler level 4
+      c.touch.gyroLevel = c.touch.gyroSens === 25 ? 4 : Math.max(1, Math.min(10, Math.round((48 - c.touch.gyroSens) / 3.8))); delete c.touch.gyroSens;
+    }
+    if ((c.pad.attack || []).includes('b1') && (c.pad.duck || []).includes('b1')) c.pad.attack = c.pad.attack.map(b => (b === 'b1' ? '' : b)); // B is crawl now
     if ('foul' in c.game) { if (c.game.slang == null || !('slang' in (s.game || {}))) c.game.slang = c.game.foul ? 2 : 0; delete c.game.foul; }
   } catch (e) { /* storage blocked — use defaults */ }
   return c;
@@ -111,21 +116,49 @@ function initTouch() {
     btn.addEventListener('pointerdown', down);
     btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('lostpointercapture', up);
   });
-  // steering slider: drag anywhere on the bar, it springs back to the middle when released
-  const bar = document.getElementById('slider'), knob = document.getElementById('sliderKnob');
-  let sid = null;
-  const setKnob = () => { knob.style.transform = `translateX(calc(-50% + ${sliderVal * (bar.clientWidth / 2 - knob.clientWidth / 2)}px))`; };
-  const move = e => {
-    const r = bar.getBoundingClientRect();
-    const v = (e.clientX - (r.left + r.width / 2)) / (r.width / 2 - knob.clientWidth / 2);
-    sliderVal = Math.max(-1, Math.min(1, v)); setKnob();
+  // Slide gestures (Slide and Gyro layouts), anywhere on the screen that isn't a button:
+  //   slide left / right (keep the finger down) = steer · swipe up = jump · swipe down = crawl (while the finger stays down)
+  // Each finger is separate, so one thumb can steer while the other swipes.
+  const zone = document.getElementById('zone');
+  const STEER_PX = 70, SWIPE = 34, fingers = new Map();
+  zone.addEventListener('pointerdown', e => {
+    if (cfg.touch.scheme === 'buttons') return;
+    e.preventDefault(); zone.setPointerCapture?.(e.pointerId);
+    fingers.set(e.pointerId, { x0: e.clientX, y0: e.clientY, cx: e.clientX, mode: '', duckT: 0 });
+  });
+  zone.addEventListener('pointermove', e => {
+    const f = fingers.get(e.pointerId); if (!f) return;
+    const dx = e.clientX - f.x0, dy = e.clientY - f.y0;
+    if (!f.mode) {
+      if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) { f.mode = 'steer'; f.cx = f.x0; showStick(f.x0, f.y0); }
+      else if (Math.abs(dy) > SWIPE && Math.abs(dy) > Math.abs(dx)) {
+        if (dy < 0) { f.mode = 'jump'; handler('jump'); flash('⤒'); }
+        else { f.mode = 'duck'; touchHeld.duck = true; f.duckT = performance.now(); flash('⤓'); }
+      }
+    }
+    if (f.mode === 'steer') {
+      let d = (e.clientX - f.cx) / STEER_PX;
+      if (Math.abs(d) > 1) { f.cx = e.clientX - Math.sign(d) * STEER_PX; d = Math.sign(d); } // the centre follows the finger: reversing is instant
+      sliderVal = Math.max(-1, Math.min(1, d)); moveStick(sliderVal);
+    }
+  });
+  const rel = e => {
+    const f = fingers.get(e.pointerId); if (!f) return;
+    fingers.delete(e.pointerId);
+    if (f.mode === 'steer' && ![...fingers.values()].some(o => o.mode === 'steer')) { sliderVal = 0; hideStick(); }
+    if (f.mode === 'duck' && ![...fingers.values()].some(o => o.mode === 'duck')) {
+      const left = 650 - (performance.now() - f.duckT); // a quick flick still crawls for a moment
+      if (left > 0) setTimeout(() => { if (![...fingers.values()].some(o => o.mode === 'duck')) touchHeld.duck = false; }, left); else touchHeld.duck = false;
+    }
   };
-  bar.addEventListener('pointerdown', e => { e.preventDefault(); sid = e.pointerId; bar.setPointerCapture?.(e.pointerId); bar.classList.add('on'); move(e); });
-  bar.addEventListener('pointermove', e => { if (e.pointerId === sid) move(e); });
-  const rel = e => { if (e.pointerId !== sid) return; sid = null; sliderVal = 0; bar.classList.remove('on'); setKnob(); };
-  bar.addEventListener('pointerup', rel); bar.addEventListener('pointercancel', rel); bar.addEventListener('lostpointercapture', rel);
+  zone.addEventListener('pointerup', rel); zone.addEventListener('pointercancel', rel); zone.addEventListener('lostpointercapture', rel);
   applyTouch();
 }
+const stickEl = () => document.getElementById('stick');
+function showStick(x, y) { const k = stickEl(); if (!k) return; k.style.left = x + 'px'; k.style.top = y + 'px'; k.classList.add('on'); moveStick(0); }
+function moveStick(v) { const k = stickEl(); if (k) k.firstElementChild.style.transform = `translateX(${v * 34}px)`; }
+function hideStick() { const k = stickEl(); if (k) k.classList.remove('on'); }
+function flash(t) { const f = document.getElementById('swipeFx'); if (!f) return; f.textContent = t; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 function applyTouch() {
   const t = document.getElementById('touch');
   t.style.setProperty('--tsize', cfg.touch.size);
@@ -140,6 +173,7 @@ function onMotion(e) {
   const g = e.accelerationIncludingGravity; if (!g || g.x == null) return;
   const ang = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
   let sx, sy;
+  const gz = g.z || 0;
   switch (((ang % 360) + 360) % 360) {
     case 90: sx = -g.y; sy = g.x; break;
     case 270: sx = g.y; sy = -g.x; break;
@@ -150,10 +184,31 @@ function onMotion(e) {
   gyroRoll = gyroRoll == null ? roll : gyroRoll + wrap(roll - gyroRoll) * 0.35; // smooth
   if (gyroZero == null) gyroZero = gyroRoll;
   const deg = -wrap(gyroRoll - gyroZero) * 180 / Math.PI;
-  let v = deg / cfg.touch.gyroSens;
+  let v = deg / gyroDegrees();
   if (Math.abs(v) < 0.08) v = 0;
   gyroVal = Math.max(-1, Math.min(1, v)) * (cfg.touch.gyroInvert ? -1 : 1);
   const ind = document.getElementById('gyroInd'); if (ind) ind.style.transform = `rotate(${Math.max(-45, Math.min(45, gyroVal * 45))}deg)`;
+  // tilt up / down: top edge towards you = jump, away from you = crawl (relative to how you usually hold it)
+  const pitch = Math.atan2(gz, Math.hypot(sx, sy)) * 180 / Math.PI * (cfg.touch.gyroTiltInvert ? -1 : 1);
+  gyroPitch = gyroPitch == null ? pitch : gyroPitch + (pitch - gyroPitch) * 0.4;
+  if (pitchZero == null) pitchZero = gyroPitch;
+  const dp = gyroPitch - pitchZero, T = 22;
+  if (Math.abs(dp) < T * 0.4) pitchZero += dp * 0.02; // slowly follows the way you hold the phone
+  if (!cfg.touch.gyroTilt || cfg.touch.scheme !== 'gyro') { tiltDuck(false); return; }
+  if (dp < -T && !tiltJumped) { tiltJumped = true; handler('jump'); flash('⤒'); }
+  else if (dp > -T * 0.4) tiltJumped = false;
+  tiltDuck(dp > T || (tiltDucking && dp > T * 0.5));
+}
+let gyroPitch = null, pitchZero = null, tiltJumped = false, tiltDucking = false;
+function tiltDuck(on) {
+  if (on === tiltDucking) return;
+  tiltDucking = on; touchHeld.duck = on; if (on) flash('⤓');
+}
+// sensitivity 1 (gentle: big tilt for a full turn) … 10 (twitchy)
+export const gyroDegrees = () => 48 - Math.max(1, Math.min(10, cfg.touch.gyroLevel || 4)) * 3.8;
+export function gyroSensitivity(step) {
+  if (step) { cfg.touch.gyroLevel = Math.max(1, Math.min(10, (cfg.touch.gyroLevel || 4) + step)); save(); }
+  return cfg.touch.gyroLevel || 4;
 }
 const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 export async function startGyro() { // must be called from a tap on iPhone (permission prompt)
@@ -165,7 +220,8 @@ export async function startGyro() { // must be called from a tap on iPhone (perm
   } catch (e) { addEventListener('devicemotion', onMotion); } // no tap yet (iPhone): listen anyway, ask again on the next tap
   return gyroOn;
 }
-export function calibrateGyro() { gyroZero = gyroRoll; }
+export function calibrateGyro() { gyroZero = gyroRoll; pitchZero = gyroPitch; }
+export function recenterGyro() { gyroRoll = null; gyroZero = null; gyroPitch = null; pitchZero = null; } // next reading becomes "straight"
 export const gyroWorking = () => gyroRoll != null;
 export const gyroDebug = () => ({ gyroRoll, gyroZero, gyroVal });
 
@@ -175,8 +231,8 @@ export function steerAxis() {
   const p = activePad();
   if (p && Math.abs(p.axes[0] || 0) > 0.15 && (cfg.pad.left.includes('a0-') || cfg.pad.right.includes('a0+'))) v = p.axes[0];
   if (touchEnabled()) {
-    if (cfg.touch.scheme === 'slider' && sliderVal) v = sliderVal;
     if (cfg.touch.scheme === 'gyro' && gyroVal) v = gyroVal;
+    if (cfg.touch.scheme !== 'buttons' && sliderVal) v = sliderVal; // a slide on the screen overrides the tilt
   }
   return Math.max(-1, Math.min(1, v));
 }
@@ -233,7 +289,7 @@ function assign(kind, action, slot, value) {
 export function renderKeyHelp() {
   const el = document.getElementById('keysHelp');
   if (!el) return;
-  const rows = [['sprint', 'জোরে দৌড় (চেপে রাখো)'], ['left', 'বাঁদিকে'], ['right', 'ডানদিকে'], ['jump', 'লাফ'],
+  const rows = [['sprint', 'জোরে দৌড় (চেপে রাখো)'], ['left', 'বাঁদিকে'], ['right', 'ডানদিকে'], ['jump', 'লাফ'], ['duck', 'হামাগুড়ি (চেপে রাখো)'],
     ['attack', 'চড় · লাথি · লাঠি · পাথর'], ['cam', 'ক্যামেরা'], ['pause', 'মেনু / বিরতি'], ['mute', 'শব্দ']];
   el.innerHTML = rows.map(([a, t]) => `<div><b>${bindingLabel(a)}</b> ${t}</div>`).join('') +
     '<div class="span2">🪨🪵🍬 পাথর, লাঠি, রসগোল্লা — উপর দিয়ে দৌড়লেই তুলে নেবে · 🎮 গেমপ্যাডও চলবে</div>';
@@ -292,22 +348,28 @@ function renderPanel() {
     const t = cfg.touch;
     const seg = (key, v, l) => `<button class="seg${t[key] === v ? ' on' : ''}" data-${key}="${v}">${l}</button>`;
     const pics = {
-      slider: '<div class="pic"><i class="pbar"><u></u></i><i class="pc" style="right:8px;bottom:6px"></i><i class="pc" style="right:34px;bottom:6px"></i><i class="pc" style="right:8px;bottom:32px"></i></div>',
-      gyro: '<div class="pic"><b>📱↻</b><i class="pc" style="left:8px;bottom:6px"></i><i class="pc" style="right:8px;bottom:6px"></i><i class="pc" style="right:8px;bottom:32px"></i></div>',
-      buttons: '<div class="pic"><i class="pc sq" style="left:8px;bottom:6px"></i><i class="pc sq" style="left:34px;bottom:6px"></i><i class="pc" style="right:8px;bottom:6px"></i><i class="pc" style="right:34px;bottom:6px"></i><i class="pc" style="right:8px;bottom:32px"></i></div>',
+      slider: '<div class="pic"><b style="left:50%;top:14px;transform:translateX(-50%)">⇠✛⇢</b><i class="pc" style="right:6px;bottom:6px"></i><i class="pc" style="right:30px;bottom:6px"></i></div>',
+      gyro: '<div class="pic"><b style="left:50%;top:14px;transform:translateX(-50%)">📱↻ ✛</b><i class="pc" style="right:6px;bottom:6px"></i><i class="pc" style="right:30px;bottom:6px"></i></div>',
+      buttons: '<div class="pic"><i class="pc sq sm" style="left:5px;bottom:4px"></i><i class="pc sq sm" style="left:22px;bottom:4px"></i><i class="pc sm" style="right:5px;bottom:4px"></i><i class="pc sm" style="right:5px;bottom:21px"></i><i class="pc sm" style="right:5px;bottom:38px"></i><i class="pc sm" style="right:22px;bottom:4px"></i></div>',
     };
     const card = (v, l, d) => `<button class="scheme${t.scheme === v ? ' on' : ''}" data-scheme="${v}">${pics[v]}<b>${l}</b><small>${d}</small></button>`;
+    const lvl = t.gyroLevel || 4;
+    const sw = (id, on) => `<label class="switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><i></i></label>`;
     body.innerHTML = `
-      <div class="schemes">${card('slider', 'Slider', 'Drag the bar to steer')}${card('gyro', 'Gyro', 'Tilt the phone to steer')}${card('buttons', 'Buttons', '◀ ▶ buttons')}</div>
+      <div class="schemes">${card('slider', 'Slide', 'Swipe anywhere: ⇠⇢ steer, ⇡ jump, ⇣ crawl')}${card('gyro', 'Gyro', 'Tilt to steer · tilt up / down · slide works too')}${card('buttons', 'Buttons', '◀ ▶ + jump, crawl, hit, sprint')}</div>
       ${t.scheme === 'gyro' ? `
-      <div class="setRow"><span><b>Gyro sensitivity</b><small>Lower = turns with a small tilt</small></span><input type="range" id="gSens" min="10" max="45" step="1" value="${t.gyroSens}"></div>
-      <div class="setRow"><span><b>Invert</b><small>Turn on if it steers the wrong way</small></span><label class="switch"><input type="checkbox" id="gInv" ${t.gyroInvert ? 'checked' : ''}><i></i></label></div>
-      <div class="setRow"><span><b>Re-centre</b><small>Hold the phone straight and tap</small></span><button class="ghost" id="gCal">⟲ Set straight</button></div>
+      <div class="setRow"><span><b>Gyro sensitivity</b><small>${lvl <= 3 ? 'Low — needs a bigger tilt' : lvl <= 6 ? 'Normal' : 'High — turns with a small tilt'}</small></span>
+        <div class="sens"><button class="ghost" id="gLess">−</button><div class="sensBar">${Array.from({ length: 10 }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}<b>${lvl}</b></div><button class="ghost" id="gMore">+</button></div></div>
+      <div class="setRow"><span><b>Tilt up / down</b><small>Tilt the top towards you = jump, away = crawl</small></span>${sw('gTilt', t.gyroTilt)}</div>
+      <div class="setRow"><span><b>Swap up / down</b><small>If jump and crawl are the wrong way round</small></span>${sw('gTiltInv', t.gyroTiltInvert)}</div>
+      <div class="setRow"><span><b>Invert steering</b><small>If it steers the wrong way</small></span>${sw('gInv', t.gyroInvert)}</div>
+      <div class="setRow"><span><b>Re-centre</b><small>Hold the phone the way you play and tap</small></span><button class="ghost" id="gCal">⟲ Set straight</button></div>
       <p class="hint" id="gStat">${gyroWorking() ? '✅ Gyro is working — tilt to test: <span id="gyroInd" class="gyroInd">⬆</span>' : '⏳ Starting gyro… If it does not work, open the game over https and allow motion access.'}</p>` : ''}
+      ${t.scheme !== 'buttons' ? '<p class="hint">🏃 sprint and 👊 hit are buttons. Each finger works on its own, so you can steer with one and swipe with the other.</p>' : ''}
       <div class="setRow"><span><b>Touch controls</b><small>Show the on-screen controls</small></span><div class="segs">${seg('mode', 'auto', 'Auto')}${seg('mode', 'on', 'On')}${seg('mode', 'off', 'Off')}</div></div>
       <div class="setRow"><span><b>Button size</b><small>Small ↔ large</small></span><input type="range" id="tSize" min="0.7" max="1.4" step="0.05" value="${t.size}"></div>
       <div class="setRow"><span><b>Opacity</b><small>See-through ↔ solid</small></span><input type="range" id="tOpa" min="0.3" max="1" step="0.05" value="${t.opacity}"></div>
-      <div class="setRow"><span><b>Left-handed</b><small>Swap the two sides</small></span><label class="switch"><input type="checkbox" id="tLeft" ${t.leftHanded ? 'checked' : ''}><i></i></label></div>`;
+      <div class="setRow"><span><b>Left-handed</b><small>Mirror the buttons</small></span>${sw('tLeft', t.leftHanded)}</div>`;
     body.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { t.mode = b.dataset.mode; save(); renderPanel(); });
     body.querySelectorAll('[data-scheme]').forEach(b => b.onclick = async () => {
       t.scheme = b.dataset.scheme; save(); applyTouch();
@@ -315,7 +377,10 @@ function renderPanel() {
       renderPanel();
     });
     const q = id => body.querySelector(id);
-    if (q('#gSens')) q('#gSens').oninput = e => { t.gyroSens = +e.target.value; save(); };
+    if (q('#gLess')) q('#gLess').onclick = () => { gyroSensitivity(-1); renderPanel(); };
+    if (q('#gMore')) q('#gMore').onclick = () => { gyroSensitivity(+1); renderPanel(); };
+    if (q('#gTilt')) q('#gTilt').onchange = e => { t.gyroTilt = e.target.checked; save(); };
+    if (q('#gTiltInv')) q('#gTiltInv').onchange = e => { t.gyroTiltInvert = e.target.checked; save(); };
     if (q('#gInv')) q('#gInv').onchange = e => { t.gyroInvert = e.target.checked; save(); };
     if (q('#gCal')) q('#gCal').onclick = () => { calibrateGyro(); q('#gCal').textContent = '✓ Done'; };
     q('#tSize').oninput = e => { t.size = +e.target.value; save(); applyTouch(); };

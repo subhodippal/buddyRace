@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset=".6" stop-color="#ff8a3d"/><stop offset="1" stop-color="#fc4a1a"/></linearGradient>
+    <radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff6c2"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="url(#sky)" stroke="#2b1d0e" stroke-width="14"/>
+  <g transform="translate(256 256) scale(1.0) translate(-256 -256)">
+    <circle cx="256" cy="200" r="190" fill="url(#sun)"/>
+    <!-- road -->
+    <path d="M190 512 L236 300 L276 300 L322 512 Z" fill="#7d7d7d"/>
+    <path d="M253 320 h6 l3 40 h-12 Z M251 390 h10 l4 60 h-18 Z" fill="#fff"/>
+    <!-- speed lines -->
+    <g stroke="#2b1d0e" stroke-width="12" stroke-linecap="round">
+      <line x1="40" y1="170" x2="108" y2="170"/><line x1="24" y1="222" x2="104" y2="222"/><line x1="46" y1="274" x2="112" y2="274"/>
+    </g>
+    <!-- shirt -->
+    <path d="M150 400 Q160 318 256 312 Q352 318 362 400 Z" fill="#ff5533" stroke="#2b1d0e" stroke-width="12" stroke-linejoin="round"/>
+    <!-- head -->
+    <circle cx="256" cy="215" r="112" fill="#c68642" stroke="#2b1d0e" stroke-width="12"/>
+    <path d="M146 205 Q140 100 256 98 Q372 100 366 205 Q330 150 256 150 Q182 150 146 205 Z" fill="#161616"/>
+    <!-- angry brows + eyes -->
+    <path d="M190 182 L238 200" stroke="#2b1d0e" stroke-width="13" stroke-linecap="round"/>
+    <path d="M322 182 L274 200" stroke="#2b1d0e" stroke-width="13" stroke-linecap="round"/>
+    <ellipse cx="214" cy="222" rx="20" ry="22" fill="#fff" stroke="#2b1d0e" stroke-width="6"/><circle cx="220" cy="226" r="9" fill="#2b1d0e"/>
+    <ellipse cx="298" cy="222" rx="20" ry="22" fill="#fff" stroke="#2b1d0e" stroke-width="6"/><circle cx="292" cy="226" r="9" fill="#2b1d0e"/>
+    <!-- shouting mouth -->
+    <path d="M222 268 Q256 250 290 268 Q286 312 256 314 Q226 312 222 268 Z" fill="#7a1f12" stroke="#2b1d0e" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M236 296 Q256 284 276 296 Q266 308 256 308 Q246 308 236 296 Z" fill="#ff7b7b"/>
+    <!-- fist -->
+    <g transform="translate(392 258) rotate(-14)">
+      <rect x="-46" y="-40" width="92" height="80" rx="30" fill="#c68642" stroke="#2b1d0e" stroke-width="11"/>
+      <path d="M-20 -40 v30 M4 -40 v30 M28 -38 v28" stroke="#2b1d0e" stroke-width="7" stroke-linecap="round"/>
+    </g>
+    <text x="420" y="168" font-family="Noto Sans Bengali" font-weight="800" font-size="40" fill="#fff" stroke="#2b1d0e" stroke-width="3" text-anchor="middle" transform="rotate(12 420 168)">ধর!</text>
+    
+    <g transform="translate(256 420)">
+      <path d="M-190 -42 L190 -42 L205 0 L190 42 L-190 42 L-205 0 Z" fill="#2b1d0e"/>
+      <text x="0" y="17" text-anchor="middle" font-family="Noto Sans Bengali" font-weight="800" font-size="62" fill="#fff8e6" stroke="#2b1d0e" stroke-width="2">বাডি রেস</text>
+    </g>
+  </g>
+</svg>

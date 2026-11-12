@@ -101,24 +101,36 @@ button { font-family: var(--ui); cursor: pointer; }
 #countdown span { animation: cd .9s ease-out forwards; }
 @keyframes cd { from { transform: scale(2.4); opacity: 0; } 30% { transform: scale(1); opacity: 1; } to { transform: scale(.9); opacity: .2; } }
 
-/* ---------- touch controls ---------- */
-#touch { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; justify-content: space-between; align-items: flex-end;
-  padding: 0 14px max(16px, env(safe-area-inset-bottom)); pointer-events: none; }
+/* ---------- touch controls (layouts follow the sketch: Slide / Gyro / Buttons × landscape / portrait) ---------- */
+#touch { position: fixed; inset: 0; z-index: 6; pointer-events: none; opacity: var(--topa, .9);
+  --u: calc(var(--tsize, 1) * var(--tland, 1)); --gap: max(14px, env(safe-area-inset-bottom)); }
 .tb { pointer-events: auto; touch-action: none; border: 3px solid var(--ink); background: rgba(255,247,230,.82);
-  box-shadow: 0 4px 0 var(--ink); color: var(--ink); font-weight: 800; padding: 0; }
+  box-shadow: 0 4px 0 var(--ink); color: var(--ink); font-weight: 800; padding: 0; position: fixed; }
 .tb.on { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); background: var(--yellow); }
-#touch { opacity: var(--topa, .9); }
-#touch.lefty { flex-direction: row-reverse; }
-#steer { display: flex; gap: 14px; transform: scale(var(--tsize, 1)); transform-origin: bottom left; }
-#steer .tb { width: 78px; height: 78px; border-radius: 22px; font-size: 30px; }
-#actions { position: relative; width: 176px; height: 176px; transform: scale(var(--tsize, 1)); transform-origin: bottom right; }
-#touch.lefty #steer { transform-origin: bottom right; }
-#touch.lefty #actions { transform-origin: bottom left; }
-.act { position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 26px; line-height: 1; }
-.act small { font-family: var(--bn); font-size: 12px; }
-.act.jump { width: 86px; height: 86px; right: 0; bottom: 0; background: rgba(120,220,140,.95); font-size: 34px; }
-.act.attack { width: 76px; height: 76px; right: 94px; bottom: 6px; background: rgba(255,140,120,.95); }
-.act.sprint { width: 70px; height: 70px; right: 10px; bottom: 100px; background: rgba(255,214,90,.95); }
+.act { border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: calc(26px * var(--u)); line-height: 1;
+  width: calc(76px * var(--u)); height: calc(76px * var(--u)); }
+.act small { font-family: var(--bn); font-size: calc(11px * var(--u)); }
+.pad { width: calc(78px * var(--u)); height: calc(78px * var(--u)); border-radius: 22px; font-size: calc(30px * var(--u)); }
+.bJump { background: rgba(120,220,140,.95); } .bDuck { background: rgba(140,190,255,.95); }
+.bHit { background: rgba(255,140,120,.95); } .bRun { background: rgba(255,214,90,.95); }
+/* positions use logical sides, so left-handed (direction: rtl) mirrors everything */
+#touch.lefty { direction: rtl; }
+#touch .tb { inset-block-end: var(--gap); }
+/* Slide & Gyro: only sprint + hit. Landscape (#1): side by side, bottom-right. Portrait (#3): the two bottom corners. */
+#touch:not(.scheme-buttons) .pad, #touch:not(.scheme-buttons) .bJump, #touch:not(.scheme-buttons) .bDuck { display: none; }
+#touch:not(.scheme-buttons) .bHit { inset-inline-end: 16px; width: calc(84px * var(--u)); height: calc(84px * var(--u)); }
+#touch:not(.scheme-buttons) .bRun { inset-inline-end: calc(16px + 96px * var(--u)); }
+body.portrait #touch:not(.scheme-buttons) .bRun { inset-inline-end: auto; inset-inline-start: 16px; }
+/* Buttons. Landscape (#2): ◀ ▶ bottom-left; jump / crawl / hit stacked on the right, sprint beside hit. */
+#touch.scheme-buttons .bLeft { inset-inline-start: 16px; } #touch.scheme-buttons .bRight { inset-inline-start: calc(16px + 90px * var(--u)); }
+#touch.scheme-buttons .act { inset-inline-end: 16px; }
+#touch.scheme-buttons .bDuck { inset-block-end: calc(var(--gap) + 86px * var(--u)); }
+#touch.scheme-buttons .bJump { inset-block-end: calc(var(--gap) + 172px * var(--u)); }
+#touch.scheme-buttons .bRun { inset-inline-end: calc(16px + 86px * var(--u)); }
+/* Buttons, portrait (#4): ◀ ▶ bottom-left; one column of four on the right */
+body.portrait #touch.scheme-buttons .bRun { inset-inline-end: 16px; inset-block-end: calc(var(--gap) + 86px * var(--u)); }
+body.portrait #touch.scheme-buttons .bDuck { inset-block-end: calc(var(--gap) + 172px * var(--u)); }
+body.portrait #touch.scheme-buttons .bJump { inset-block-end: calc(var(--gap) + 258px * var(--u)); }
 
 #dogWarn { position: absolute; left: 50%; bottom: 210px; transform: translateX(-50%); background: #c0170f; color: #fff;
   border: 3px solid var(--ink); border-radius: 14px; padding: 4px 14px; font-family: var(--bn); font-weight: 800; font-size: 20px;
@@ -395,18 +407,7 @@ button { font-family: var(--ui); cursor: pointer; }
 @keyframes sweat { to { transform: translate(calc(-50% + var(--dx, 20px)), -90%) scale(1.3); opacity: 0; } }
 .slangBtn { display: block; width: 100%; margin: 6px 0; font-family: var(--bn); }
 
-/* rotate-to-landscape screen (phones) */
-#rotate { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-  background: radial-gradient(circle at 50% 35%, #ffd27a, #c0560f); color: var(--ink); text-align: center; padding: 24px; }
-#rotate .phone { font-size: 72px; animation: turn 1.6s ease-in-out infinite; }
-#rotate b { font-family: var(--bn); font-size: 28px; }
-#rotate span { font-size: 16px; }
-#rotate .big { width: auto; margin-top: 14px; font-size: 20px; }
-@keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
-
 /* touch scale multiplier for short landscape screens */
-#steer { transform: scale(calc(var(--tsize, 1) * var(--tland, 1))); }
-#actions { transform: scale(calc(var(--tsize, 1) * var(--tland, 1))); }
 
 /* ---------- landscape phones (short screens) ---------- */
 @media (orientation: landscape) and (max-height: 540px) {
@@ -436,8 +437,9 @@ button { font-family: var(--ui); cursor: pointer; }
   #title .titleCard > .logoBn, #title .titleCard > .logoEn, #title .titleCard > .tag { grid-column: 1; }
   #title .titleCard > button { grid-column: 2; margin: 5px 0; }
   #title .titleCard > .keys, #title .titleCard > #loading { grid-column: 1 / -1; }
-  #title .logoBn { grid-row: 1; } #title .logoEn { grid-row: 2; } #title .tag { grid-row: 3; }
-  #btnPlay { grid-row: 1; } #btnMP { grid-row: 2; } #btnCtlTitle { grid-row: 3; }
+  #title .logoBn { grid-row: 2; align-self: end; } #title .logoEn { grid-row: 3; align-self: start; } #title .tag { grid-row: 4; }
+  #title .titleCard > button.big { margin: 3px 0; padding: 5px 8px; font-size: 17px; }
+  #title .titleCard > .logoBn, #title .titleCard > .logoEn { align-self: end; }
   .logoBn { font-size: clamp(30px, 9vh, 50px); }
   .logoBn.sm { font-size: 30px; }
   .big { font-size: 20px; padding: 8px; margin: 6px 0; }
@@ -459,21 +461,26 @@ button { font-family: var(--ui); cursor: pointer; }
 }
 
 /* =================== v5: mobile control schemes (slider / gyro / buttons) =================== */
-#leftPad { display: flex; align-items: flex-end; gap: 14px; transform: scale(calc(var(--tsize, 1) * var(--tland, 1))); transform-origin: bottom left; }
-#touch.lefty #leftPad { transform-origin: bottom right; }
-#steer { transform: none; }
-#slider { position: relative; width: 240px; height: 66px; border-radius: 33px; touch-action: none; display: flex; justify-content: space-between;
-  align-items: center; padding: 0 16px; font-size: 20px; color: rgba(43,29,14,.45); background: rgba(255,247,230,.75); }
-#slider.on { transform: none; background: rgba(255,247,230,.9); box-shadow: 0 4px 0 var(--ink); }
-#sliderKnob { position: absolute; left: 50%; top: 4px; width: 52px; height: 52px; border-radius: 50%; background: var(--yellow);
-  border: 3px solid var(--ink); box-shadow: 0 3px 0 var(--ink); transform: translateX(-50%); pointer-events: none; }
-#slider:not(.on) #sliderKnob { transition: transform .15s ease-out; }
-.act.sprintL { position: relative; width: 92px; height: 92px; background: rgba(255,214,90,.95); font-size: 32px; }
-/* which parts show for each layout */
-#touch.scheme-slider #steer, #touch.scheme-slider .sprintL { display: none; }
-#touch.scheme-buttons #slider, #touch.scheme-buttons .sprintL { display: none; }
-#touch.scheme-gyro #steer, #touch.scheme-gyro #slider, #touch.scheme-gyro #actions .act.sprint { display: none; }
-#touch.scheme-gyro #actions .act.attack { right: 4px; bottom: 98px; width: 80px; height: 80px; }
+/* Slide / Gyro: the whole screen (under the HUD) takes swipes; a faint cross shows where (left-centre in landscape, bottom-centre in portrait) */
+#zone { position: fixed; inset: 96px 0 0 0; pointer-events: auto; touch-action: none; }
+#touch.scheme-buttons #zone, #touch.scheme-buttons #cross { display: none; }
+#cross { position: fixed; left: 30%; top: 58%; width: 150px; height: 150px; margin: -75px 0 0 -75px; pointer-events: none;
+  font-family: var(--bn); font-weight: 800; color: rgba(255,255,255,.9); text-shadow: 0 1px 3px rgba(0,0,0,.65); animation: hintFade 7s 5s forwards; }
+#cross::before, #cross::after { content: ""; position: absolute; background: rgba(255,255,255,.55); border-radius: 2px; }
+#cross::before { left: 50%; top: 18%; bottom: 18%; width: 3px; margin-left: -1.5px; } #cross::after { top: 50%; left: 14%; right: 14%; height: 3px; margin-top: -1.5px; }
+#cross i { position: absolute; font-style: normal; font-size: 15px; white-space: nowrap; }
+#cross .u { top: -4px; left: 50%; transform: translateX(-50%); } #cross .d { bottom: -4px; left: 50%; transform: translateX(-50%); }
+#cross .l { left: -6px; top: 50%; transform: translateY(-50%); font-size: 22px; } #cross .r { right: -6px; top: 50%; transform: translateY(-50%); font-size: 22px; }
+body.portrait #cross { left: 50%; top: auto; bottom: 120px; margin: 0 0 0 -75px; }
+@keyframes hintFade { to { opacity: 0; } }
+#stick { position: fixed; z-index: 0; width: 120px; height: 46px; margin: -23px 0 0 -60px; border-radius: 23px; background: rgba(255,247,230,.35);
+  border: 2px solid rgba(43,29,14,.35); pointer-events: none; opacity: 0; transition: opacity .12s; }
+#stick.on { opacity: 1; }
+#stick i { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: var(--yellow); border: 3px solid var(--ink); }
+#swipeFx { position: fixed; right: 22%; top: 42%; font-size: 64px; font-weight: 900; color: #fff; text-shadow: 0 3px 0 var(--ink); pointer-events: none; opacity: 0; }
+#swipeFx.go { animation: swipeFx .45s ease-out; }
+@keyframes swipeFx { from { opacity: 1; transform: scale(.6); } to { opacity: 0; transform: scale(1.4); } }
+body.portrait #zone { top: 120px; }
 /* settings: layout cards with a little picture of each */
 .schemes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0 10px; }
 .scheme { border: 3px solid var(--ink); border-radius: 12px; background: #fff; padding: 6px; display: flex; flex-direction: column; align-items: center;
@@ -564,3 +571,34 @@ button { font-family: var(--ui); cursor: pointer; }
 @keyframes actCap { 50% { left: var(--cx); top: 18%; transform: translateX(-50%) scale(.9) rotate(-180deg); } 100% { left: var(--cx); top: 40%; transform: translateX(-50%) scale(.75) rotate(-360deg); } }
 .act-notice { animation-name: actNotice; }  /* results flash on the board */
 @keyframes actNotice { 30% { transform: translateX(-50%) scale(2); filter: drop-shadow(0 0 20px #fff36b); } 60% { transform: translateX(-50%) scale(1.6) rotate(-6deg); } 100% { transform: translateX(-50%) scale(1.8); } }
+.pic b[style] { transform: none; top: 20px; }
+
+/* ---------- four ways to play ---------- */
+.big.alt2 { background: #8e44ad; }
+.big.alt3 { background: #16a085; }
+.big small { display: block; font-size: 13px; font-weight: 700; opacity: .85; }
+.roomList { list-style: none; padding: 0; margin: 4px 0 8px; max-height: 34vh; overflow-y: auto; }
+.roomList li { margin: 4px 0; } .roomList .empty { opacity: .6; font-family: var(--bn); text-align: center; padding: 8px; }
+.roomList button { width: 100%; text-align: left; font-family: var(--bn); font-size: 17px; }
+.roomList button small { float: right; opacity: .7; }
+#mpAuto { font-weight: 800; color: var(--orange); }
+
+/* phones and tablets: no keyboard list on the title screen */
+body.touchdev #keysHelp { display: none; }
+
+/* gyro sensitivity: − ▮▮▮▮▯▯ + */
+.sens { display: flex; align-items: center; gap: 6px; }
+.sens .ghost { width: 38px; height: 38px; padding: 0; font-size: 22px; font-weight: 900; }
+.sens .sensBar { display: flex; align-items: center; gap: 2px; }
+.sens .sensBar i { width: 7px; height: 18px; border-radius: 2px; background: #ddd; border: 1px solid rgba(0,0,0,.2); }
+.sens .sensBar i.on { background: var(--orange); }
+.sens .sensBar b { margin-left: 6px; min-width: 18px; text-align: center; }
+
+/* portrait: the HUD row wraps instead of running under the top-right buttons */
+body.portrait #topRow { max-width: calc(100% - 150px); flex-wrap: wrap; row-gap: 4px; }
+.pic .pc.sm { width: 14px; height: 14px; }
+
+/* install button on the title screen */
+.ghost.install { border-color: var(--orange); color: var(--orange); font-weight: 800; }
+#iosInstall { font-size: 13px; }
+  #title .titleCard > #iosInstall { grid-column: 1 / -1; }

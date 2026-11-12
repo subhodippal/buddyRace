@@ -1,23 +1,32 @@
 <!doctype html>
-<html lang="bn">
+<html lang="bn" translate="no" class="notranslate">
 <head>
   <meta charset="utf-8" />
+  <meta name="google" content="notranslate" />
+  <meta http-equiv="Content-Language" content="bn" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#f7b733" />
   <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon-small.svg" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="বাডি রেস" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="application-name" content="বাডি রেস" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>Buddy Race</title>
-  <meta name="description" content="A funny 3D running and fighting race of five hostel friends through campus, Kolkata streets, markets, villages and over the river — single player or multiplayer." />
+  <title>বাডি রেস — Buddy Race</title>
+  <meta name="description" content="A funny 3D running and fighting race of four hostel friends through campus, Kolkata streets, markets, villages and over the river — single player or multiplayer." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;700;800&family=Noto+Sans+Bengali:wght@600;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
   <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+    { "imports": { "three": "./vendor/three.module.js" } }
   </script>
 </head>
-<body>
+<body translate="no" class="notranslate">
   <canvas id="game"></canvas>
 
   <div id="speedFx"></div>
@@ -47,19 +56,17 @@
 
   <!-- touch controls -->
   <div id="touch" class="hidden">
-    <div id="leftPad">
-      <div id="steer">
-        <button data-k="left" class="tb">◀</button>
-        <button data-k="right" class="tb">▶</button>
-      </div>
-      <div id="slider" class="tb"><span>◀</span><span>▶</span><div id="sliderKnob"></div></div>
-      <button data-k="sprint" class="tb act sprintL">🏃<small>জোরে</small></button>
-    </div>
-    <div id="actions">
-      <button data-k="sprint" class="tb act sprint">🏃<small>জোরে</small></button>
-      <button data-k="attack" class="tb act attack">👊<small>মার</small></button>
-      <button data-k="jump" class="tb act jump">⤒<small>লাফ</small></button>
-    </div>
+    <!-- Slide / Gyro: swipe anywhere (⇠⇢ steer · ⇡ jump · ⇣ crawl) + sprint & hit buttons. Buttons: ◀ ▶ and four action buttons. -->
+    <div id="zone"></div>
+    <div id="cross"><i class="u">⇡ লাফ</i><i class="d">⇣ হামাগুড়ি</i><i class="l">⇠</i><i class="r">⇢</i></div>
+    <div id="stick"><i></i></div>
+    <div id="swipeFx"></div>
+    <button data-k="left" class="tb pad bLeft">◀</button>
+    <button data-k="right" class="tb pad bRight">▶</button>
+    <button data-k="jump" class="tb act bJump">⤒<small>লাফ</small></button>
+    <button data-k="duck" class="tb act bDuck">⤓<small>হামাগুড়ি</small></button>
+    <button data-k="attack" class="tb act bHit">👊<small>মার</small></button>
+    <button data-k="sprint" class="tb act bRun">🏃<small>জোরে</small></button>
   </div>
 
   <!-- title screen -->
@@ -67,9 +74,13 @@
     <div class="titleCard">
       <div class="logoBn">বাডি রেস</div>
       <div class="logoEn">BUDDY <span>RACE</span></div>
-      <button id="btnPlay" class="big">▶ খেলা শুরু</button>
-      <button id="btnMP" class="big alt">👥 বন্ধুদের সাথে খেলো</button>
+      <button id="btnPlay" class="big">▶ একা খেলো</button>
+      <button id="btnMP" class="big alt">👥 বন্ধুদের রুম <small>অনলাইন · কোড দিয়ে</small></button>
+      <button id="btnMatch" class="big alt2">🌐 অনলাইন ম্যাচ <small>অচেনা খেলোয়াড়দের সাথে</small></button>
+      <button id="btnLan" class="big alt3">📶 Wi-Fi / হটস্পট রুম <small>একই Wi-Fi-তে, ইন্টারনেট ছাড়াই</small></button>
       <button id="btnCtlTitle" class="ghost">⚙ সেটিংস ও কন্ট্রোল</button>
+      <button id="btnInstall" class="ghost install hidden">📲 ফোনে ইনস্টল করো</button>
+      <div id="iosInstall" class="tag hidden">📲 ইনস্টল করতে: Safari-তে <b>শেয়ার ⎋</b> → <b>Add to Home Screen</b></div>
       <div class="keys" id="keysHelp"></div>
       <div id="loading">লোড হচ্ছে…</div>
     </div>
@@ -88,24 +99,33 @@
   <!-- multiplayer -->
   <div id="mp" class="screen hidden">
     <div class="titleCard wide">
-      <button id="mpBack" class="ghost topBack">‹ Back</button>
-      <div class="logoBn sm en">Play with Friends</div>
-      <div class="tag en">Up to 4 players. Empty seats are filled by computer runners.</div>
+      <button id="mpBack" class="ghost topBack">‹ ফিরে যাও</button>
+      <div class="logoBn sm" id="mpTitle">বন্ধুদের রুম</div>
+      <div class="tag" id="mpTag">সর্বোচ্চ ৪ জন। ফাঁকা জায়গায় কম্পিউটার দৌড়বে।</div>
+      <label class="field" id="mpNameRow"><span>তোমার নাম</span><input id="mpName" maxlength="14" placeholder="Poltu" autocomplete="off" /></label>
       <div id="mpStart">
-        <label class="field"><span>Your name</span><input id="mpName" maxlength="14" placeholder="Poltu" autocomplete="off" /></label>
-        <button id="mpCreate" class="big">＋ Create room</button>
-        <div class="joinRow"><input id="mpCode" maxlength="6" placeholder="ROOM CODE" autocomplete="off" /><button id="mpJoin" class="big alt">Join</button></div>
+        <button id="mpCreate" class="big">＋ রুম বানাও</button>
+        <div class="joinRow"><input id="mpCode" maxlength="6" placeholder="রুম কোড" autocomplete="off" /><button id="mpJoin" class="big alt">যোগ দাও</button></div>
+      </div>
+      <div id="mpFind" class="hidden">
+        <button id="mpSearch" class="big alt2">🔍 ম্যাচ খোঁজো</button>
+      </div>
+      <div id="mpLan" class="hidden">
+        <button id="mpLanCreate" class="big alt3">＋ Wi-Fi রুম বানাও</button>
+        <div class="tag">কাছাকাছি রুম (টোকা দিয়ে যোগ দাও):</div>
+        <ul id="mpLanRooms" class="roomList"></ul>
       </div>
       <div id="mpLobby" class="hidden">
-        <div class="roomCode">Room code <b id="mpCodeShow"></b></div>
-        <button id="mpCopy" class="ghost">🔗 Copy invite link</button>
+        <div class="roomCode" id="mpCodeRow">রুম কোড <b id="mpCodeShow"></b></div>
+        <button id="mpCopy" class="ghost">🔗 আমন্ত্রণ লিঙ্ক কপি করো</button>
+        <div id="mpAuto" class="tag"></div>
         <ul id="mpPlayers"></ul>
         <div id="mpHostCtl">
-          <label class="field"><span>Level</span><select id="mpLevel"></select></label>
-          <button id="mpGo" class="big">▶ Start race</button>
+          <label class="field"><span>লেভেল</span><select id="mpLevel"></select></label>
+          <button id="mpGo" class="big">▶ দৌড় শুরু</button>
         </div>
-        <div id="mpWaitMsg" class="tag">Waiting for the host to start…<br><b id="mpLevelShow"></b></div>
-        <button id="mpLeave" class="ghost">Leave room</button>
+        <div id="mpWaitMsg" class="tag">হোস্ট দৌড় শুরু করার অপেক্ষায়…<br><b id="mpLevelShow"></b></div>
+        <button id="mpLeave" class="ghost">রুম ছেড়ে দাও</button>
       </div>
       <div id="mpStatus" class="tag"></div>
     </div>
@@ -159,7 +179,6 @@
     </div>
   </div>
 
-  <div id="rotate" class="hidden"><div class="phone">📱</div><b>ফোনটা ঘুরিয়ে নাও!</b><span>আড়াআড়ি করে ধরো, তবেই খেলা জমবে</span><button id="btnRotate" class="big">⛶ ফুল স্ক্রিন</button></div>
 
   <script type="module" src="js/main.js"></script>
 </body>

@@ -8,13 +8,21 @@ A silly 3D browser race. Four hostel friends (তুমি, বাবলু, প
 - **Group brawls:** twice per race everyone bunches up for 10 seconds of ধিসুম ধিসুম. Mash HIT. The best fighter gets a speed boost.
 - **Bystanders** wave and shout comments. The runners trash-talk each other ("ধর ধর!", "পালাবি কোথায়?", "ধর বাটাকে!", "হনু কোথাকার!").
 - **Settings → খেলা → গালাগালি: বন্ধ / চালু.** চালু turns on Bengali slang for grown-up groups, from mild teasing ("কানা ডোচা", "বোকা পাঁঠা") to uncensored khisti. It is **off by default**.
-- **Three mobile control layouts** (Settings → মোবাইল): **স্লাইডার** (drag a bar on the left to steer, three buttons on the right), **জাইরো** (tilt the phone like a steering wheel; sprint on the left, hit and jump on the right; sensitivity, invert and re-centre options), and the classic **বোতাম** ◀ ▶ buttons. The gyro needs HTTPS on phones (GitHub Pages is fine; a plain `http://192.168…` LAN address is not).
-- **All in-game text is Bengali.**
-- **Mobile plays in landscape.** Phones show a rotate screen in portrait; on Android the game goes fullscreen and locks to landscape on the first tap.
-- **Equal speeds.** Every runner, AI included, has the same top speed and the same sprint: 4 seconds full, 15 seconds to refill.
-- **Multiplayer:** create a room and share the code or link. Up to 4 players, and AI fills the empty seats.
+- **Three mobile control layouts** (Settings → Mobile):
+  - **Gyro** (default): tilt left / right to steer, tilt the top towards you to jump and away to crawl. All the Slide swipes work too. Sensitivity has − / + buttons with 10 levels (default 4, the gentle side of normal), plus options to swap up / down, invert steering and re-centre.
+  - **Slide:** swipe anywhere on the screen. Slide left / right (keep the finger down) to steer, swipe up to jump, swipe down to crawl. Each finger works on its own, so one thumb can steer while the other swipes.
+  - **Buttons:** ◀ ▶ at bottom-left, and jump, crawl, hit and sprint buttons on the right (a column of four in portrait).
 
-Built with [three.js](https://threejs.org/) (loaded from a CDN). There is **no build step**. Music and most sound effects are synthesized in the browser. The story slides play only fast action music (no voices).
+  Slide and Gyro also have 🏃 sprint and 👊 hit buttons: side by side at the bottom-right in landscape, in the two bottom corners in portrait. Left-handed mode mirrors all of it. The gyro needs HTTPS on phones (GitHub Pages is fine; a plain `http://192.168…` LAN address is not).
+- **All in-game text is Bengali.**
+- **Mobile plays in portrait or landscape.** Turn the phone any time; the camera widens in portrait and the gyro re-centres itself. On Android the game goes fullscreen on the first tap.
+- **Crawl under things:** some roads are blocked by two men carrying a bamboo ladder across, a wooden beam on sawhorses, or a big fallen tree. They are too high to jump, so crawl under them (slower, no sprint). Walk into one standing up and you bang your head.
+- **Equal speeds.** Every runner, AI included, has the same top speed and the same sprint: 4 seconds full, 15 seconds to refill.
+- **Four ways to play:** **একা খেলো** (single player), **বন্ধুদের রুম** (a friends' room online with a code or link), **অনলাইন ম্যাচ** (matched with strangers online), and **Wi-Fi / হটস্পট রুম** (everyone on the same Wi-Fi or phone hotspot, even with no internet). Up to 4 players; computer runners fill the empty seats.
+- **Installable app (PWA):** on Android (Chrome, Edge, Samsung Internet) tap **📲 ফোনে ইনস্টল করো** on the title screen, or the browser's *Install app*. On iPhone: Safari → Share → *Add to Home Screen*. It gets its own icon, opens fullscreen, and after the first visit it works offline (voices included). Installing needs HTTPS (GitHub Pages is fine) or `localhost`; a plain `http://192.168…` address can be played but not installed.
+- **Always in Bengali:** the page tells Chrome, Edge, Safari and Firefox (desktop and mobile) never to auto-translate it.
+
+Built with [three.js](https://threejs.org/) (a copy is in `vendor/`, so the game also loads with no internet). There is **no build step**. Music and most sound effects are synthesized in the browser. The story slides play only fast action music (no voices).
 
 - **Voices:** the Bengali voice lines are small pre-rendered MP3 clips in `audio/voice/`, so they play in any browser, offline, even where the OS has no Bengali speech voice. Every voice is angry, and each group has its own tune:
   - `friend`: the racers, young hostel boys.
@@ -60,10 +68,11 @@ You run automatically. All controls can be remapped from **⏸ → ⚙ Controls*
 
 | Action | Keyboard | Gamepad | Touch |
 |---|---|---|---|
-| Move left / right | `A` `D` / `←` `→` | Left stick / D-pad | ◀ ▶ |
+| Move left / right | `A` `D` / `←` `→` | Left stick / D-pad | tilt (Gyro), slide anywhere (Slide), ◀ ▶ (Buttons) |
 | Sprint (hold, uses stamina "দম") | `Shift` / `↑` | RT / RB | 🏃 জোরে |
-| Jump (potholes, barricades, cows, goats, dog bites) | `Space` | A / ✕ | ⤒ লাফ |
-| Hit | `Ctrl` / `F` | X / □, B / ○ | 👊 মার |
+| Jump (potholes, barricades, cows, goats, dog bites) | `Space` | A / ✕ | swipe up, tilt up (Gyro), or ⤒ |
+| Crawl (hold: ladders, beams, fallen trees) | `S` / `↓` | B / ○, D-pad ↓ | swipe down, tilt down (Gyro), or ⤓ |
+| Hit | `Ctrl` / `F` | X / □ | 👊 মার |
 | Change camera (behind / top) | `C` | Y / △ | 🎥 |
 | Pause menu | `Esc` / `P` | Start | ⏸ |
 | Mute | `M` | Back | 🔊 |
@@ -72,7 +81,15 @@ You run automatically. All controls can be remapped from **⏸ → ⚙ Controls*
 
 **Stones and sticks are picked up automatically** when you run over them. Each stone pickup gives you 3 stones.
 
-**Multiplayer:** on the title screen, choose **একসাথে খেলো / Multiplayer** and then **Create room**. Share the 5-letter code, or use **Copy invite link** (`…?room=CODE`). Friends tap **Join**, and the host picks a level and starts. The connection is peer-to-peer over WebRTC through the free [PeerJS](https://peerjs.com/) matchmaking server, so it works on GitHub Pages with no game server. The host's browser runs the race, so the host should be on the best connection. Some strict networks (corporate or university firewalls) block peer-to-peer connections.
+**Multiplayer:** up to 4 players. The host's browser runs the race, so the host should have the best connection.
+
+- **বন্ধুদের রুম (friends' room):** tap **রুম বানাও**, then share the 5-letter code or **আমন্ত্রণ লিঙ্ক** (`…?room=CODE`). Friends type the code and tap **যোগ দাও**. The host picks a level and starts.
+- **অনলাইন ম্যাচ (online match):** tap **ম্যাচ খোঁজো**. You join a public room that has a free seat. If none is waiting, you open one and wait. It starts by itself after 30 seconds (or as soon as 4 players are in) on a random level.
+- **Wi-Fi / হটস্পট রুম:** for everyone on one Wi-Fi network or phone hotspot.
+  - **With no internet:** one laptop on that network runs `node server.js`, and everyone opens the `Phone:` address it prints. Rooms then appear in a list to tap; no code needed. The server relays the game, nothing goes to the internet.
+  - **On the normal website:** this mode makes an ordinary room. Players find each other through the internet, but the game data then goes directly between the phones over the shared Wi-Fi.
+
+Online rooms and matches are peer-to-peer over WebRTC through the free [PeerJS](https://peerjs.com/) matchmaking server, so they work on GitHub Pages with no game server. Some strict networks (corporate or university firewalls) block peer-to-peer connections.
 
 **Dog gang:** twice per race, street dogs chase you, running right behind and beside you and lunging for bites. Jump to dodge a bite, or hold sprint to outrun them (panic sprint: windmill arms, dust trail, speed lines).
 
@@ -95,7 +112,9 @@ js/main.js        game loop, runners, AI, combat, brawls, dog gang, superintende
 js/track.js       curved / hilly road centre-line (track space ↔ world space)
 js/levels.js      the 10 level layouts
 js/stories.js     hostel stories, dialogue + khisti lines, intro & ending scenes
-js/net.js         PeerJS rooms (host / join)
+sw.js             service worker: offline cache for the installable app
+icons/            app icon (icon.svg is the source; PNGs made with rsvg-convert)
+js/net.js         rooms: online (PeerJS), online matchmaking, Wi-Fi / hotspot (WebSocket relay in server.js)
 js/input.js       keyboard / gamepad / touch input, remapping, controls menu
 js/world.js       scenery chunks along the curve: campus, city, market, village, river, bridge
 js/models.js      low-poly buddies, rickshaw, cycle, auto, toto, bike, dog, cow, goat, obstacles

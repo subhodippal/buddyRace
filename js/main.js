@@ -9,8 +9,8 @@ import { initAudio, sfx, say as tts, setVoice, pauseAudio, resumeAudio, setMuted
 import { playSlides, closeStory } from './intro.js';
 import { STORIES, line, introSlides, endingSlides, storyForLevel, COMMENTS } from './stories.js';
 import { VOICE_RATE, SUPER_RATE } from './voicekey.js';
-import { initInput, held, pollGamepad, openControls, closeControls, isPanelOpen, touchEnabled, bindingLabel, isTouchDevice as isTouch, setting, setSetting, steerAxis, startGyro, calibrateGyro } from './input.js';
-import { net, hostRoom, joinRoom, send, sendTo, broadcast, leave } from './net.js';
+import { initInput, held, pollGamepad, openControls, closeControls, isPanelOpen, touchEnabled, bindingLabel, isTouchDevice as isTouch, setting, setSetting, steerAxis, startGyro, calibrateGyro, recenterGyro } from './input.js';
+import { net, hostRoom, joinRoom, findMatch, lanAvailable, lanRooms, lanHost, send, sendTo, broadcast, leave } from './net.js';
 
 const $ = id => document.getElementById(id);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -54,22 +54,23 @@ let portrait = false, baseFov = 60;
 function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
-  camera.aspect = w / h; portrait = w < h; baseFov = portrait ? 72 : (h < 540 ? 62 : 58);
+  camera.aspect = w / h; portrait = w < h; baseFov = portrait ? 80 : (h < 540 ? 62 : 58); // portrait: wider view so the road still fits
   camera.updateProjectionMatrix();
-  $('rotate').classList.toggle('hidden', !(isTouch && portrait)); // phones play in landscape only
+  document.body.classList.toggle('portrait', portrait);
+  document.body.classList.toggle('touchdev', !!isTouch);
 }
+let lastPortrait = portrait;
 addEventListener('resize', () => {
   resize();
-  if (isTouch && portrait && state === 'playing' && !menuOpen && !net.active) togglePause();
+  if (portrait !== lastPortrait) { lastPortrait = portrait; recenterGyro(); } // phone turned: the gyro's "straight" changes
 });
 resize();
-// phones: go fullscreen and lock to landscape on the first tap (Android; iOS just shows the rotate screen)
-async function goLandscape() {
+// phones: go fullscreen on the first tap (Android). Portrait and landscape both work, so the orientation is not locked.
+async function goFullscreen() {
   if (!isTouch) return;
   try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) { /* not allowed */ }
-  try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { /* not supported */ }
 }
-for (const id of ['btnPlay', 'btnMP', 'btnRotate']) $(id).addEventListener('click', () => { goLandscape(); startGyro(); });
+for (const id of ['btnPlay', 'btnMP']) $(id).addEventListener('click', () => { goFullscreen(); startGyro(); });
 
 // ---------------- game state ----------------
 let levelIdx = 0, level = LEVELS[0], track = null, world = null;
@@ -163,7 +164,7 @@ function talk(obj, cat, life = 1.5, yOff) { // a line from a category; clients p
   bubble(obj, L(cat), life, yOff, cat === 'fall' && obj !== player); // you only hear your own fall cries
   const ref = refOf(obj); if (ref) emit({ e: 'tk', k: ref[0], i: ref[1], c: cat, l: life, y: yOff });
 }
-let othersLeft = 3, othersNextT = 10;
+let othersLeft = 3, othersNextT = 10, crawlHinted = false;
 function otherCanTalk() { return othersLeft > 0 && raceTime >= othersNextT; }
 function otherTalked() { othersLeft--; othersNextT = raceTime + rand(20, 35); }
 function otherSay(o, text, life, yOff) { if (!text || !otherCanTalk()) return; otherTalked(); say(o, text, life, yOff); }
@@ -259,7 +260,7 @@ class Runner {
     this.tag.classList.toggle('me', this === player);
   }
 }
-function makeInput() { return { dirX: 0, bias: 0, jump: false, attack: false, sprint: false }; }
+function makeInput() { return { dirX: 0, bias: 0, jump: false, attack: false, sprint: false, duck: false }; }
 
 // ---------------- input ----------------
 const edge = { jump: false, attack: false };
@@ -377,12 +378,14 @@ function updateHUD(dt) {
 
 // ---------------- obstacles & pickups (created from params so clients can mirror them) ----------------
 const VEH_SPEED = { rickshaw: 3.5, cycle: 5, toto: 4.5, auto: 7, bike: 8.5, thela: 2 };
+const OVERHEAD = { ladder: M.makeLadder, beam: M.makeBeam, tree: M.makeFallenTree }; // crawl under these
 const MAKERS = { rickshaw: M.makeRickshaw, cycle: M.makeCycle, auto: M.makeAuto, toto: M.makeToto, bike: M.makeBike, thela: M.makeThela,
   cow: M.makeCow, goat: M.makeGoat, pothole: M.makePothole, blocker: M.makeBlocker, banana: M.makeBanana, walker: M.makeWalker, hens: M.makeHens };
 function createObstacle(p) {
   let o;
   if (p.kind === 'drain') o = M.makeDrain(p.half, p.plank);
   else if (p.kind === 'bumper') o = M.makeBumper(p.half);
+  else if (OVERHEAD[p.kind]) o = OVERHEAD[p.kind](p.half);
   else o = MAKERS[p.kind]();
   Object.assign(o, { id: p.id, x: p.x, z: p.z, vz: p.vz || 0, vx: p.vx || 0, yaw: p.rot || 0, honkT: rand(0.5, 2), phase: Math.random() * 6 });
   if (o.kind in VEH_SPEED) o.vehicle = true;
@@ -405,11 +408,11 @@ function createPickup(p) {
 function removePickup(k) { k.taken = true; scene.remove(k.root); pkById.delete(k.id); }
 
 const ZONE_SPAWN = {
-  campus: [['pothole', 3], ['blocker', 3], ['goat', 2], ['cycle', 1], ['bumper', 1.5], ['walker', 1.5], ['banana', 1.5]],
-  city: [['pothole', 2], ['blocker', 1.5], ['cow', 1.2], ['goat', 0.8], ['rickshaw', 1.2], ['cycle', 1], ['auto', 1.2], ['toto', 1.2], ['bike', 1], ['banana', 2.2], ['walker', 1.5], ['bumper', 0.8], ['drain', 0.7]],
-  market: [['walker', 3], ['thela', 2], ['banana', 3.5], ['cow', 1], ['cycle', 1], ['rickshaw', 1.2], ['toto', 1], ['pothole', 0.6]],
-  village: [['cow', 2], ['goat', 2], ['hens', 2], ['pothole', 2], ['drain', 1.2], ['cycle', 1.2], ['toto', 0.6], ['walker', 0.8], ['banana', 1.5]],
-  river: [['bike', 1.5], ['auto', 1.5], ['cycle', 1.5], ['toto', 1], ['blocker', 1], ['walker', 1], ['pothole', 1], ['banana', 1.5]],
+  campus: [['pothole', 3], ['blocker', 3], ['goat', 2], ['cycle', 1], ['bumper', 1.5], ['walker', 1.5], ['banana', 1.5], ['ladder', 0.9], ['beam', 0.9]],
+  city: [['ladder', 0.9], ['tree', 0.4], ['pothole', 2], ['blocker', 1.5], ['cow', 1.2], ['goat', 0.8], ['rickshaw', 1.2], ['cycle', 1], ['auto', 1.2], ['toto', 1.2], ['bike', 1], ['banana', 2.2], ['walker', 1.5], ['bumper', 0.8], ['drain', 0.7]],
+  market: [['ladder', 0.8], ['beam', 0.6], ['walker', 3], ['thela', 2], ['banana', 3.5], ['cow', 1], ['cycle', 1], ['rickshaw', 1.2], ['toto', 1], ['pothole', 0.6]],
+  village: [['tree', 1.1], ['beam', 0.5], ['cow', 2], ['goat', 2], ['hens', 2], ['pothole', 2], ['drain', 1.2], ['cycle', 1.2], ['toto', 0.6], ['walker', 0.8], ['banana', 1.5]],
+  river: [['tree', 0.6], ['bike', 1.5], ['auto', 1.5], ['cycle', 1.5], ['toto', 1], ['blocker', 1], ['walker', 1], ['pothole', 1], ['banana', 1.5]],
   bridge: [['bike', 1.5], ['auto', 1], ['cycle', 1.5], ['toto', 1], ['walker', 1], ['banana', 1.2]],
 };
 function weighted(list) {
@@ -422,7 +425,7 @@ function spawnObstacle(p) { p.id = nextId++; createObstacle(p); emit({ e: 'ob', 
 function spawnRow(s) {
   const zone = track.zone(s), half = track.half(s), table = ZONE_SPAWN[zone] || ZONE_SPAWN.city;
   const first = weighted(table);
-  if (first === 'drain' || first === 'bumper') { // full-width hazards get the row to themselves
+  if (first === 'drain' || first === 'bumper' || OVERHEAD[first]) { // full-width hazards get the row to themselves
     spawnObstacle({ kind: first, x: 0, z: r2(s), half: r2(half), plank: r2(rand(-half + 1.5, half - 1.5)) });
     return;
   }
@@ -430,7 +433,7 @@ function spawnRow(s) {
   const n = zone === 'campus' ? 1 : (Math.random() < 0.5 ? 2 : 1);
   for (let i = 0; i < n; i++) {
     let kind = i === 0 ? first : weighted(table);
-    if (kind === 'drain' || kind === 'bumper') kind = 'pothole';
+    if (kind === 'drain' || kind === 'bumper' || OVERHEAD[kind]) kind = 'pothole';
     let x = lanes[i] + rand(-0.3, 0.3);
     const p = { kind, z: r2(s + rand(-2, 2)) };
     if (kind in VEH_SPEED) { p.vz = r2(VEH_SPEED[kind] * rand(0.85, 1.15)); x = clamp(x, -half + 1.6, half - 1.6); }
@@ -589,6 +592,10 @@ function hitObstacle(r, o) {
     r.stun = 1.6; r.speed = 0; r.inv = 2.4; r.z = o.z + o.d + 0.6;
     pow(r.x, 1, o.z, 'ছপাৎ!'); play('splash', r.z); talk(r, 'fall', 1.4);
     damage(r, 10);
+  } else if (o.overhead) { // walked head-first into a ladder / beam / fallen tree
+    r.stun = 1.2; r.speed = 0; r.inv = 2; r.z = Math.min(r.z, o.z - o.d - 0.5);
+    pow(r.x, 1.9, r.z, 'ঠকাস! 🤕'); play('stick', r.z); talk(r, 'fall', 1.2);
+    damage(r, 8);
   } else if (o.slip) {
     r.stun = 1.1; r.spin = 1; r.speed *= 0.3; r.inv = 1.8;
     pow(r.x, 1.4, r.z, 'পিছলে গেল!'); play('slip', r.z); talk(r, 'fall', 1.2);
@@ -618,6 +625,7 @@ function collideObstacles(r) {
     if (Math.abs(r.z - o.z) > o.d + 0.32) continue;
     if (!o.full && Math.abs(r.x - o.x) > o.w + 0.3) continue;
     if (r.y > o.h) continue;
+    if (o.overhead && r.duck) continue; // crawled under it
     if (r.inv > 0 && o.kind !== 'bumper') continue;
     hitObstacle(r, o);
     if (o.kind !== 'bumper') return;
@@ -634,6 +642,7 @@ function updateObstacles(dt, authoritative) {
       if (o.buddy) { const s = Math.sin(time * 9 + o.phase) * 0.7; o.buddy.legL.rotation.x = s; o.buddy.legR.rotation.x = -s; o.buddy.armL.rotation.x = -s * 0.6; o.buddy.armR.rotation.x = s * 0.6; }
       if (o.birds) o.birds.forEach((b, i) => { b.position.y = Math.abs(Math.sin(time * 14 + i)) * 0.15; });
     }
+    if (o.overhead && state === 'playing' && o.z - player.z < 22 && o.z > player.z && !crawlHinted) { crawlHinted = true; showBanner('মাথা নিচু! ⬇️', touchEnabled() ? 'নিচে সোয়াইপ করে হামাগুড়ি দাও' : bindingLabel('duck') + ' চেপে হামাগুড়ি দাও', 2.2, false); }
     placeObstacle(o);
     if (o.head && !o.vehicle) o.head.rotation.y = Math.sin(time * 1.3 + o.phase) * 0.4;
     if (!authoritative) continue;
@@ -807,9 +816,10 @@ function aiInput(r, dt) {
     if (dz < od) { od = dz; obs = o; }
   }
   if (obs) {
-    if (ai.lastObs !== obs) { ai.lastObs = obs; ai.lastOk = Math.random() < ai.skill; ai.dodge = !obs.jumpable || (!obs.full && Math.random() < 0.35); }
+    if (ai.lastObs !== obs) { ai.lastObs = obs; ai.lastOk = Math.random() < (obs.overhead ? Math.min(0.95, ai.skill + 0.1) : ai.skill); ai.dodge = !obs.jumpable || (!obs.full && Math.random() < 0.35); }
     if (ai.lastOk) {
-      if (obs.kind === 'drain') { ai.tx = obs.plankX; ai.think = 1; if (Math.abs(r.x - obs.plankX) > 0.5 && od < r.speed * 0.22 + 0.2) inp.jump = true; }
+      if (obs.overhead) { if (od < r.speed * 0.45 + 1) inp.duck = true; }
+      else if (obs.kind === 'drain') { ai.tx = obs.plankX; ai.think = 1; if (Math.abs(r.x - obs.plankX) > 0.5 && od < r.speed * 0.22 + 0.2) inp.jump = true; }
       else if (obs.kind === 'bumper') { if (od < r.speed * 0.2 && Math.random() < 0.5) inp.jump = true; }
       else if (ai.dodge) {
         const side = r.x > obs.x ? 1 : -1;
@@ -849,12 +859,12 @@ function humanInput(r) {
   const inp = makeInput();
   if (r === player) {
     inp.dirX = -steerAxis(); // +x is the runner's left; keys, stick, slider or gyro
-    inp.sprint = held('sprint');
+    inp.sprint = held('sprint'); inp.duck = held('duck');
     if (!menuOpen) { inp.jump = edge.jump; inp.attack = edge.attack; }
     edge.jump = edge.attack = false;
   } else {
     const ri = remoteIn[r.idx] || {};
-    inp.dirX = ri.x != null ? -ri.x : (ri.l ? 1 : 0) - (ri.r ? 1 : 0); inp.sprint = !!ri.s;
+    inp.dirX = ri.x != null ? -ri.x : (ri.l ? 1 : 0) - (ri.r ? 1 : 0); inp.sprint = !!ri.s; inp.duck = !!ri.d;
     inp.jump = !!ri.jump; inp.attack = !!ri.attack; ri.jump = ri.attack = false;
   }
   return inp;
@@ -869,18 +879,22 @@ function updateRunner(r, dt) {
 
   const lim = track.half(r.z) - 0.6;
   if (r.stun > 0) {
+    r.duck = false;
     r.stun -= dt;
     r.speed = Math.max(0, r.speed - 25 * dt);
     r.vx *= Math.max(0, 1 - 4 * dt);
   } else {
     let target = BASE_SPEED + inp.bias;
     r.sprinting = false;
+    r.duck = inp.duck && r.y <= 0.05; // crawl: slow, but fits under ladders, beams and fallen trees
+    if (r.duck) inp.sprint = false;
     if (r.stamina <= 0) r.tired = true; else if (r.stamina >= 0.2) r.tired = false; // empty → wait a bit before sprinting again
     if (inp.sprint && !r.tired) { target = SPRINT_SPEED + inp.bias; r.sprinting = true; r.stamina = Math.max(0, r.stamina - dt / SPRINT_TIME); }
     else r.stamina = Math.min(1, r.stamina + dt / REGEN_TIME);
     if (dogTime > 0) target += PANIC_BONUS;
     if (r.boostT > 0) target += 3;
     if (r.slow > 0) target *= 0.6;
+    if (r.duck) target *= 0.55;
     const slope = (track.h(r.z + 1.5) - track.h(r.z - 1.5)) / 3; // uphill is slower
     target *= clamp(1 - slope * 1.6, 0.7, 1.25);
     if (track.seg(r.z).surface === 'soil') target *= 0.96;
@@ -982,10 +996,16 @@ function animRunner(r, dt) {
     m.legL.rotation.x = -squat * 1.1; m.legR.rotation.x = -squat * 1.1;
   }
   r.fall += ((r.stun > 0.15 && !r.inBrawl ? 1 : 0) - r.fall) * Math.min(1, dt * 10);
+  r.crouch = (r.crouch || 0) + ((r.duck ? 1 : 0) - (r.crouch || 0)) * Math.min(1, dt * 14);
+  if (r.crouch > 0.05) { // crawling: bent double, hands forward, short quick steps
+    const c = r.crouch, w = Math.sin(r.phase * 1.4);
+    m.legL.rotation.x = -1.2 * c + w * 0.4; m.legR.rotation.x = -1.2 * c - w * 0.4;
+    m.armL.rotation.set(-1.5 * c - w * 0.4, 0, 0.2); m.armR.rotation.set(-1.5 * c + w * 0.4, 0, -0.2);
+  }
   const bob = r.y <= 0 ? Math.abs(Math.cos(r.phase)) * 0.12 * amp : 0;
   if (r.fall > 0.05) { m.legL.rotation.x = 0.3; m.legR.rotation.x = -0.3; m.armL.rotation.set(-2.8, 0, 0.6); m.armR.rotation.set(-2.8, 0, -0.6); }
-  m.body.rotation.x = (0.13 * Math.min(1, r.speed / 12) + (panic ? 0.32 : r.sprinting ? 0.14 : 0)) * (1 - r.fall) + 1.42 * r.fall + squat * 0.3;
-  m.body.position.y = bob * (1 - r.fall) + 0.22 * r.fall - squat * 0.45;
+  m.body.rotation.x = (0.13 * Math.min(1, r.speed / 12) + (panic ? 0.32 : r.sprinting ? 0.14 : 0)) * (1 - r.fall) + 1.42 * r.fall + squat * 0.3 + (r.crouch || 0) * 1.0;
+  m.body.position.y = bob * (1 - r.fall) + 0.22 * r.fall - squat * 0.45 - (r.crouch || 0) * 0.75;
   let yaw = clamp(r.vx * 0.05, -0.4, 0.4) * (1 - r.fall);
   if (r.spin > 0) yaw += r.spin * 12;
   if (r.inBrawl) yaw += Math.sin(time * 7 + r.idx) * 0.8;
@@ -1080,7 +1100,7 @@ function resetRace() {
   world.reset();
   const dbgS = +new URLSearchParams(location.search).get('z') || 0; // debug: ?z=600 starts further along
   runners.forEach(r => { r.reset(); r.z = dbgS; r.ai.tx = r.x; animRunner(r, 0); });
-  othersLeft = Math.random() < 0.5 ? 2 : 3; othersNextT = rand(8, 15); // other people speak only 2–3 times a race
+  othersLeft = Math.random() < 0.5 ? 2 : 3; othersNextT = rand(8, 15); crawlHinted = false; // other people speak only 2–3 times a race
   nextSpawnS = dbgS + 34; nextPickupS = dbgS + 18; raceTime = 0; finishOrder = []; dogTime = 0; shake = 0; endTimer = -1;
   brawl = null; brawlCloud.g.visible = false;
   dogEvents = level.dogs.filter(z => z > dbgS + 20);
@@ -1094,6 +1114,8 @@ function resetRace() {
     startDogs, startBrawl, runners, get state() { return state; }, get dogs() { return dogs; }, get camera() { return camera; },
     get brawl() { return brawl; }, get track() { return track; }, get obstacles() { return obstacles; }, attack: () => doAttack(player),
     give(kind) { const p = { id: nextId++, item: kind, x: player.x, z: player.z + 5 }; createPickup(p); emit({ e: 'pk', ...p }); },
+    get player() { return player; },
+    hazard(kind, ahead = 14) { const z = player.z + ahead; spawnObstacle({ kind, x: 0, z: r2(z), half: r2(track.half(z)) }); },
   };
 }
 
@@ -1217,6 +1239,7 @@ $('btnLobby').onclick = () => { hideScreens(); broadcast({ t: 'lobby' }); showLo
 
 function hideScreens() { for (const id of ['title', 'levels', 'mp', 'result', 'pause', 'waitHost']) $(id).classList.add('hidden'); }
 function quitToTitle() {
+  stopLobbyTimers();
   if (net.active) leave();
   closeStory(); hideScreens(); clearEntities();
   state = 'title'; menuOpen = false;
@@ -1249,75 +1272,141 @@ const roster = []; // [{slot, name, human, conn}]
 let snapT = 0, inputT = 0, lastSnap = null, lastSnapAt = 0;
 function myName() { return ($('mpName').value || '').trim().slice(0, 14) || 'Poltu'; }
 function rosterMsg() { return { t: 'roster', level: levelIdx, roster: roster.map(r => ({ slot: r.slot, name: r.name, human: r.human })) }; }
-function showMP() {
-  state = 'lobby';
+// four ways to play: alone (btnPlay), a friends' room with a code, a match with strangers online, a Wi-Fi / hotspot room
+let mpMode = 'room', lanPoll = 0, autoT = 0, autoTimer = 0;
+const MP_TEXT = {
+  room: ['বন্ধুদের রুম', 'রুম বানিয়ে কোড বা লিঙ্ক পাঠাও। সর্বোচ্চ ৪ জন, ফাঁকা জায়গায় কম্পিউটার দৌড়বে।'],
+  match: ['অনলাইন ম্যাচ', 'অনলাইনে যারা খেলছে তাদের সাথে মিলিয়ে দেওয়া হবে। কেউ না থাকলে তুমি রুম খুলে অপেক্ষা করবে।'],
+  lan: ['Wi-Fi / হটস্পট রুম', 'সবাই একই Wi-Fi বা ফোনের হটস্পটে থাকো।'],
+};
+function showMP(mode = 'room') {
+  state = 'lobby'; mpMode = mode;
   $('mpName').value = (setting('name') && setting('name') !== 'বন্ধু') ? setting('name') : 'Poltu'; // default name, typed in the box
-  $('mpStart').classList.remove('hidden'); $('mpLobby').classList.add('hidden'); $('mpStatus').textContent = '';
+  $('mpTitle').textContent = MP_TEXT[mode][0]; $('mpTag').textContent = MP_TEXT[mode][1];
+  $('mpNameRow').classList.remove('hidden');
+  $('mpStart').classList.toggle('hidden', mode !== 'room'); $('mpFind').classList.toggle('hidden', mode !== 'match');
+  $('mpLan').classList.add('hidden'); $('mpLobby').classList.add('hidden'); $('mpStatus').textContent = '';
   $('mp').classList.remove('hidden');
+  if (mode === 'lan') lanAvailable().then(ok => {
+    if (mpMode !== 'lan' || net.active) return;
+    if (ok) { // served by server.js on this network: rooms work with no internet
+      $('mpTag').textContent = 'এই Wi-Fi / হটস্পটে ইন্টারনেট ছাড়াই খেলা চলবে। রুম বানাও, বা নিচের রুমে টোকা দাও।';
+      $('mpLan').classList.remove('hidden'); refreshLanRooms(); clearInterval(lanPoll); lanPoll = setInterval(refreshLanRooms, 2000);
+    } else { // plain web page: use a normal room — data still goes phone-to-phone over the shared Wi-Fi
+      $('mpTag').innerHTML = 'সবাই একই Wi-Fi / হটস্পটে থেকে রুম বানাও বা কোড দিয়ে যোগ দাও — খেলার ডেটা সরাসরি Wi-Fi দিয়েই যাবে।<br><small>হটস্পটে ইন্টারনেট না থাকলে: একটা ল্যাপটপে <b>node server.js</b> চালাও, সবাই ল্যাপটপের ঠিকানাটা খোলো।</small>';
+      $('mpStart').classList.remove('hidden');
+    }
+  });
 }
-$('btnMP').onclick = () => { initAudio(); $('title').classList.add('hidden'); showMP(); };
-$('mpBack').onclick = () => { if (net.active) leave(); $('mp').classList.add('hidden'); state = 'title'; $('title').classList.remove('hidden'); };
+async function refreshLanRooms() {
+  const list = await lanRooms();
+  $('mpLanRooms').innerHTML = list.length ? list.map(r => `<li><button class="ghost" data-room="${r.code}">📶 ${escapeHTML(r.name)} <small>${bnNum(r.players)} জন · ${r.code}</small></button></li>`).join('')
+    : '<li class="empty">এখনও কোনো রুম নেই</li>';
+  $('mpLanRooms').querySelectorAll('[data-room]').forEach(b => b.onclick = () => joinByCode('L-' + b.dataset.room));
+}
+function stopLobbyTimers() { clearInterval(lanPoll); lanPoll = 0; clearInterval(autoTimer); autoTimer = 0; }
+$('btnMP').onclick = () => { initAudio(); $('title').classList.add('hidden'); showMP('room'); };
+$('btnMatch').onclick = () => { initAudio(); $('title').classList.add('hidden'); showMP('match'); };
+$('btnLan').onclick = () => { initAudio(); $('title').classList.add('hidden'); showMP('lan'); };
+$('mpBack').onclick = () => { stopLobbyTimers(); if (net.active) leave(); $('mp').classList.add('hidden'); state = 'title'; $('title').classList.remove('hidden'); };
+const mpErr = e => { $('mpStatus').textContent = '❌ ' + (e && e.message || 'যোগাযোগ হল না — আবার চেষ্টা করো'); };
+function hostHandlers() {
+  return {
+    onJoin: conn => {
+      const free = roster.find(r => !r.human);
+      if (!free || !(state === 'lobby' || state === 'results')) { sendTo(conn, { t: 'full' }); setTimeout(() => conn.close(), 300); return; }
+      Object.assign(free, { human: true, conn, name: 'বন্ধু ' + free.slot });
+      sendTo(conn, { t: 'welcome', slot: free.slot });
+      broadcast(rosterMsg()); renderLobby();
+    },
+    onData: (conn, m) => hostOnData(conn, m),
+    onLeave: conn => {
+      const r = roster.find(x => x.conn === conn); if (!r) return;
+      const who = r.name;
+      Object.assign(r, { human: false, conn: null, name: CHARS[r.slot].name });
+      const rn = runners[r.slot]; rn.human = false; rn.remote = false; rn.netName = '';
+      if (state === 'playing') showBanner(`${who} চলে গেল`, 'এবার কম্পিউটার দৌড়বে', 2);
+      broadcast(rosterMsg()); renderLobby();
+    },
+    onError: e => console.warn('peer error', e),
+  };
+}
+function becomeHost() {
+  $('mpStatus').textContent = '';
+  roster.length = 0;
+  for (let i = 0; i < CHARS.length; i++) roster.push({ slot: i, name: i === 0 ? myName() : CHARS[i].name, human: i === 0, conn: null });
+  showLobby();
+}
+const clientHandlers = () => ({ onData: clientOnData, onClose: () => { alert('হোস্ট রুম ছেড়ে চলে গেছে।'); quitToTitle(); } });
 $('mpCreate').onclick = async () => {
   setSetting('name', myName());
-  $('mpStatus').textContent = 'Creating room…';
-  try {
-    await hostRoom({
-      onJoin: conn => {
-        const free = roster.find(r => !r.human);
-        if (!free || !(state === 'lobby' || state === 'results')) { sendTo(conn, { t: 'full' }); setTimeout(() => conn.close(), 300); return; }
-        Object.assign(free, { human: true, conn, name: 'বন্ধু ' + free.slot });
-        sendTo(conn, { t: 'welcome', slot: free.slot });
-        broadcast(rosterMsg()); renderLobby();
-      },
-      onData: (conn, m) => hostOnData(conn, m),
-      onLeave: conn => {
-        const r = roster.find(x => x.conn === conn); if (!r) return;
-        const who = r.name;
-        Object.assign(r, { human: false, conn: null, name: CHARS[r.slot].name });
-        const rn = runners[r.slot]; rn.human = false; rn.remote = false; rn.netName = '';
-        if (state === 'playing') showBanner(`${who} চলে গেল`, 'এবার কম্পিউটার দৌড়বে', 2);
-        broadcast(rosterMsg()); renderLobby();
-      },
-      onError: e => console.warn('peer error', e),
-    });
-    roster.length = 0;
-    for (let i = 0; i < CHARS.length; i++) roster.push({ slot: i, name: i === 0 ? myName() : CHARS[i].name, human: i === 0, conn: null });
-    showLobby();
-  } catch (e) { $('mpStatus').textContent = '❌ ' + (e.message || 'Could not connect — please try again'); }
+  $('mpStatus').textContent = 'রুম বানানো হচ্ছে…';
+  try { await hostRoom(hostHandlers()); becomeHost(); } catch (e) { mpErr(e); }
 };
-$('mpJoin').onclick = async () => {
+$('mpLanCreate').onclick = async () => {
   setSetting('name', myName());
-  const code = $('mpCode').value.trim().toUpperCase();
-  if (code.length < 4) { $('mpStatus').textContent = 'Enter the room code'; return; }
-  $('mpStatus').textContent = 'Joining ' + code + '…';
+  $('mpStatus').textContent = 'Wi-Fi রুম বানানো হচ্ছে…';
+  try { await lanHost(hostHandlers(), myName()); stopLobbyTimers(); becomeHost(); } catch (e) { mpErr(e); }
+};
+async function joinByCode(code) {
+  setSetting('name', myName());
+  $('mpStatus').textContent = 'যোগ দেওয়া হচ্ছে ' + code.replace(/^L-/, '') + '…';
   try {
-    await joinRoom(code, { onData: clientOnData, onClose: () => { alert('The host left the room.'); quitToTitle(); } });
+    await joinRoom(code, clientHandlers());
+    stopLobbyTimers();
     send({ t: 'hello', name: myName() });
-    $('mpStatus').textContent = '✅ Connected — waiting for the host';
-  } catch (e) { $('mpStatus').textContent = '❌ ' + (e.message || 'Could not connect — please try again'); }
+    $('mpStatus').textContent = '✅ যুক্ত হয়েছ — হোস্টের অপেক্ষায়';
+  } catch (e) { mpErr(e); }
+}
+$('mpJoin').onclick = () => {
+  const code = $('mpCode').value.trim().toUpperCase();
+  if (code.length < 4) { $('mpStatus').textContent = 'রুম কোড লেখো'; return; }
+  joinByCode(code);
+};
+$('mpSearch').onclick = async () => {
+  setSetting('name', myName());
+  $('mpSearch').disabled = true;
+  try {
+    const r = await findMatch(hostHandlers(), clientHandlers(), t => { $('mpStatus').textContent = t; });
+    if (r.host) { becomeHost(); $('mpStatus').textContent = ''; }
+    else { send({ t: 'hello', name: myName() }); $('mpStatus').textContent = '✅ ম্যাচ পাওয়া গেছে — শুরু হওয়ার অপেক্ষায়'; }
+  } catch (e) { mpErr(e); } finally { $('mpSearch').disabled = false; }
 };
 function showLobby() {
   state = 'lobby';
   $('mp').classList.remove('hidden');
   $('mpStart').classList.add('hidden'); $('mpLobby').classList.remove('hidden');
-  $('mpCodeShow').textContent = net.code;
+  $('mpCodeShow').textContent = net.code.replace(/^L-/, '');
+  $('mpNameRow').classList.add('hidden'); $('mpFind').classList.add('hidden'); $('mpLan').classList.add('hidden');
+  $('mpCodeRow').classList.toggle('hidden', net.mode === 'public'); $('mpCopy').classList.toggle('hidden', net.mode === 'public');
+  $('mpAuto').textContent = '';
+  if (net.mode === 'public' && net.host && !autoTimer) { // strangers: start by itself after a short wait
+    autoT = 30;
+    autoTimer = setInterval(() => {
+      if (state !== 'lobby' || !net.active) { clearInterval(autoTimer); autoTimer = 0; return; }
+      autoT--;
+      const humansIn = roster.filter(r => r.human).length;
+      $('mpAuto').textContent = humansIn >= CHARS.length ? 'সবাই এসে গেছে!' : `আরও খেলোয়াড়ের অপেক্ষা… ${bnNum(Math.max(0, autoT))} সেকেন্ডে শুরু`;
+      if (autoT <= 0 || humansIn >= CHARS.length) { clearInterval(autoTimer); autoTimer = 0; hostStart((Math.random() * LEVELS.length) | 0); }
+    }, 1000);
+  }
   $('mpHostCtl').classList.toggle('hidden', !net.host);
   $('mpWaitMsg').classList.toggle('hidden', net.host);
-  $('mpLevel').innerHTML = LEVELS.map((lv, i) => `<option value="${i}" ${i === levelIdx ? 'selected' : ''}>${i + 1}. ${lv.en}</option>`).join('');
+  $('mpLevel').innerHTML = LEVELS.map((lv, i) => `<option value="${i}" ${i === levelIdx ? 'selected' : ''}>${bnNum(i + 1)}. ${lv.bn}</option>`).join('');
   if (net.host) renderLobby();
 }
 function renderLobby(list = roster) {
-  $('mpPlayers').innerHTML = `<li class="cnt">👥 <b>${list.filter(r => r.human).length} / 5</b> players <small>(the rest are 🤖 computer)</small></li>` + list.map(r => `<li><span class="sw" style="background:${CHARS[r.slot].color}"></span>
-    ${r.human ? '👤' : '🤖'} <b>${escapeHTML(r.name)}</b>${r.slot === net.mySlot ? ' <small>(you)</small>' : ''}${r.slot === 0 ? ' <small>· host</small>' : ''}</li>`).join('');
+  $('mpPlayers').innerHTML = `<li class="cnt">👥 <b>${bnNum(list.filter(r => r.human).length)} / ${bnNum(CHARS.length)}</b> জন খেলোয়াড় <small>(বাকিরা 🤖 কম্পিউটার)</small></li>` + list.map(r => `<li><span class="sw" style="background:${CHARS[r.slot].color}"></span>
+    ${r.human ? '👤' : '🤖'} <b>${escapeHTML(r.name)}</b>${r.slot === net.mySlot ? ' <small>(তুমি)</small>' : ''}${r.slot === 0 ? ' <small>· হোস্ট</small>' : ''}</li>`).join('');
 }
 $('mpCopy').onclick = () => {
   const url = `${location.origin}${location.pathname}?room=${net.code}`;
-  const done = () => { $('mpCopy').textContent = '✓ Copied'; setTimeout(() => { $('mpCopy').textContent = '🔗 Copy invite link'; }, 1500); };
-  if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => prompt('Invite link:', url)); else prompt('Invite link:', url);
+  const done = () => { $('mpCopy').textContent = '✓ কপি হয়েছে'; setTimeout(() => { $('mpCopy').textContent = '🔗 আমন্ত্রণ লিঙ্ক কপি করো'; }, 1500); };
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => prompt('আমন্ত্রণ লিঙ্ক:', url)); else prompt('আমন্ত্রণ লিঙ্ক:', url);
 };
 $('mpLevel').onchange = () => { levelIdx = +$('mpLevel').value; broadcast(rosterMsg()); };
 $('mpGo').onclick = () => hostStart(+$('mpLevel').value);
-$('mpLeave').onclick = () => { leave(); quitToTitle(); };
+$('mpLeave').onclick = () => { stopLobbyTimers(); leave(); quitToTitle(); };
 
 function applyRosterToRunners(list) {
   for (const r of list) {
@@ -1338,13 +1427,13 @@ function hostOnData(conn, m) {
   const r = roster.find(x => x.conn === conn); if (!r) return;
   const ri = remoteIn[r.slot] || (remoteIn[r.slot] = {});
   if (m.t === 'hello') { r.name = String(m.name || 'Poltu').slice(0, 14); broadcast(rosterMsg()); renderLobby(); }
-  else if (m.t === 'in') { ri.x = typeof m.x === 'number' ? clamp(m.x, -1, 1) : null; ri.l = m.l; ri.r = m.r; ri.s = m.s; }
+  else if (m.t === 'in') { ri.x = typeof m.x === 'number' ? clamp(m.x, -1, 1) : null; ri.l = m.l; ri.r = m.r; ri.s = m.s; ri.d = m.d; }
   else if (m.t === 'a' && (m.a === 'jump' || m.a === 'attack')) ri[m.a] = true;
 }
 function clientOnData(m) {
   switch (m.t) {
     case 'welcome': net.mySlot = m.slot; break;
-    case 'full': $('mpStatus').textContent = '❌ The room is full, or the race has already started'; break;
+    case 'full': $('mpStatus').textContent = '❌ রুম ভর্তি, বা দৌড় শুরু হয়ে গেছে'; break;
     case 'roster':
       levelIdx = m.level;
       if (state === 'lobby' || state === 'title') { showLobby(); renderLobby(m.roster); $('mpLevelShow').textContent = `${m.level + 1}. ${LEVELS[m.level].en}`; }
@@ -1381,7 +1470,7 @@ function hostNetTick(dt) {
   broadcast({
     t: 's', dt: r2(dogTime), br: brawl ? [r2(brawl.t), r2(brawl.s)] : 0,
     rs: runners.map(r => [r2(r.x), r2(r.z), r2(r.y), r2(r.speed), r2(r.vx), r2(r.stun), r2(r.attackT), ATK.indexOf(r.attackType), r.attackSide, r.kickDir,
-      Math.round(r.hp), r.stick ? 1 : 0, r.stones, (r.finished ? 1 : 0) | (r.caught ? 2 : 0) | (r.inBrawl ? 4 : 0) | (r.sprinting ? 8 : 0) | (r.tired ? 16 : 0), r2(r.stamina), r2(r.spin), r2(r.ko), r.brawlScore]),
+      Math.round(r.hp), r.stick ? 1 : 0, r.stones, (r.finished ? 1 : 0) | (r.caught ? 2 : 0) | (r.inBrawl ? 4 : 0) | (r.sprinting ? 8 : 0) | (r.tired ? 16 : 0) | (r.duck ? 32 : 0), r2(r.stamina), r2(r.spin), r2(r.ko), r.brawlScore]),
     ob: obstacles.filter(o => o.id && (o.vehicle || o.walker)).map(o => [o.id, r2(o.x), r2(o.z), r2(o.vx)]),
     dg: dogs.map(d => [d.id, r2(d.x), r2(d.z), r2(d.cur), r2(d.want)]),
     fo: finishOrder.map(r => r.idx),
@@ -1389,7 +1478,7 @@ function hostNetTick(dt) {
 }
 function clientTick(dt) {
   inputT -= dt;
-  if (inputT <= 0) { inputT = 1 / 15; send({ t: 'in', x: r2(steerAxis()), s: held('sprint') }); }
+  if (inputT <= 0) { inputT = 1 / 15; send({ t: 'in', x: r2(steerAxis()), s: held('sprint'), d: held('duck') }); }
   const snap = lastSnap;
   if (snap) {
     const age = Math.min(0.3, (performance.now() - lastSnapAt) / 1000);
@@ -1400,7 +1489,7 @@ function clientTick(dt) {
       r.z += speed * dt; r.z += (z + speed * age - r.z) * Math.min(1, dt * 8);
       r.y += (y - r.y) * Math.min(1, dt * 15);
       Object.assign(r, { speed, vx, stun, hp, stick: !!stick, stones, stamina: stam, spin, ko, brawlScore: bs,
-        finished: !!(fl & 1), caught: !!(fl & 2), inBrawl: !!(fl & 4), sprinting: !!(fl & 8), tired: !!(fl & 16), inv: 0 });
+        finished: !!(fl & 1), caught: !!(fl & 2), inBrawl: !!(fl & 4), sprinting: !!(fl & 8), tired: !!(fl & 16), duck: !!(fl & 32), inv: 0 });
       if (attackT > 0.15 && r.attackT <= 0) Object.assign(r, { attackT, attackType: ATK[at], attackSide: side, kickDir: kd });
       r.attackT -= dt;
     });
@@ -1472,8 +1561,23 @@ async function boot() {
   $('btnPlay').disabled = false;
   if (isTouch) $('keysHelp').classList.add('hidden'); // phones don't need keyboard keys
   const room = new URLSearchParams(location.search).get('room');
-  if (room) { $('title').classList.add('hidden'); showMP(); $('mpCode').value = room.toUpperCase(); }
+  if (room) { $('title').classList.add('hidden'); showMP(room.startsWith('L-') ? 'lan' : 'room'); $('mpStart').classList.remove('hidden'); $('mpCode').value = room.toUpperCase(); }
   requestAnimationFrame(frame);
 }
 $('btnPlay').disabled = true;
+
+// ---------------- installable app (PWA) ----------------
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('service worker', e)));
+let installPrompt = null;
+const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('btnInstall').classList.remove('hidden'); });
+addEventListener('appinstalled', () => { installPrompt = null; $('btnInstall').classList.add('hidden'); });
+$('btnInstall').onclick = async () => {
+  if (!installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice.catch(() => null);
+  installPrompt = null; $('btnInstall').classList.add('hidden');
+};
+if (!standalone && /iPhone|iPad|iPod/.test(navigator.userAgent) && !/CriOS|FxiOS/.test(navigator.userAgent)) $('iosInstall').classList.remove('hidden'); // Safari has no install prompt
 boot();
