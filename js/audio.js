@@ -78,13 +78,13 @@ function animal(f0s, dur, formants, vol = 0.3, delay = 0, breath = 0.15) {
   out.connect(sfxBus); o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
 }
 
-// ---------- real animal recordings (audio/animals, see CREDITS.md) ----------
+// ---------- real animal recordings (audio/animal, see CREDITS.md) ----------
 const SAMPLES = { dog: ['dog1', 'dog2', 'dog3'], cow: ['cow1', 'cow2'], goat: ['goat1', 'goat2', 'goat3', 'goat4'] };
 const sampleBufs = {};
 function loadSamples() {
   for (const [k, files] of Object.entries(SAMPLES)) sampleBufs[k] = [];
   for (const [k, files] of Object.entries(SAMPLES)) for (const f of files)
-    fetch(`audio/animals/${f}.mp3`).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => sampleBufs[k].push(buf)).catch(() => {});
+    fetch(`audio/animal/${f}.mp3`).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => sampleBufs[k].push(buf)).catch(() => {});
 }
 let busyUntil = {}, lastPick = {};
 function sample(k, rate = 1, vol = 0.8, far = false) { // true if a recording was played
@@ -190,13 +190,18 @@ const clipCache = new Map();
 function loadBank() {
   if (bank) return;
   bank = {};
-  fetch('audio/voice/index.json').then(r => r.ok ? r.json() : {}).then(j => { bank = j; }).catch(() => {});
+  // index.json lists every clip: { f: 'slang/friendChase/03.mp3', t: line, v: voice }. The folders mirror the comment files.
+  fetch('audio/voice/index.json').then(r => r.ok ? r.json() : {}).then(j => {
+    const b = {};
+    for (const c of j.clips || []) (b[c.v] ||= {})[c.t] = c.f;
+    bank = b;
+  }).catch(() => {});
 }
 function clipFor(text, voice) { // -> Promise<AudioBuffer|null>, or null when there is no clip for this line
   const k = voiceKey(text);
   if (!k || !bank) return null;
   if (!bank[voice] || !bank[voice][k]) return null;
-  const url = `audio/voice/${voice}/${bank[voice][k]}.mp3`;
+  const url = `audio/voice/${bank[voice][k]}`;
   if (!clipCache.has(url)) clipCache.set(url, fetch(url).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).catch(() => null));
   return clipCache.get(url);
 }

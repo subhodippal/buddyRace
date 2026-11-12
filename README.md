@@ -44,7 +44,7 @@ Built with [three.js](https://threejs.org/) (a copy is in `vendor/`, so the game
   Lines typed in English letters (Banglish) are shown as typed and spoken in Bengali. Their Bengali spellings are in `audio/voice/spoken.json`, so you can fix any word that is pronounced wrong.
 
   Each speaker also gets a slightly different pitch. Settings → খেলা → **Bengali voice** turns them off.
-- **Animals:** the dog, cow and goat sounds are real recordings in `audio/animals/` (credits and licences in [`audio/animals/CREDITS.md`](audio/animals/CREDITS.md)).
+- **Animals:** the dog, cow and goat sounds are real recordings in `audio/animal/` (credits and licences in [`audio/animal/CREDITS.md`](audio/animal/CREDITS.md)).
 - **All text and voices:** every speech bubble, every voice clip and the prequel/ending story come from two files with the same keys:
   - [`noslangs.comment.json`](noslangs.comment.json): used when গালাগালি is Off.
   - [`slangs.comment.json`](slangs.comment.json): used when গালাগালি is On. An empty list in one file falls back to the same list in the other.
@@ -58,6 +58,23 @@ If you add or change lines in either comment file, regenerate the clips. This ne
 pip install edge-tts      # once
 node tools/make-voices.mjs
 ```
+
+The clips are laid out like the JSON files, so you can find (and listen to) the clip for any line:
+
+```
+audio/
+  animal/                                   dog, cow and goat recordings
+  voice/
+    slang/                                  ← slangs.comment.json
+      shopkeeperShout/01.mp3 02.mp3 …       (01 = the first line in the list)
+      outsiderMale/ outsiderFemale/ friendsFight/ friendChase/ friendFall/ superSir/ driver/ walker/
+      levelSpeceficFriends/level1/ … level10/
+      levelSpeceficOutsider/level1/ … level10/
+    noSlang/                                ← noslangs.comment.json (same folders)
+    index.json                              every clip and its line (the game reads this)
+```
+
+Running the tool again re-syncs the folders: moved or reordered lines are renamed, not re-rendered.
 
 ## Play locally
 

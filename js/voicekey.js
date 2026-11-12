@@ -11,3 +11,11 @@ export function voiceId(k) { // FNV-1a, 8 hex chars
 
 // playback rate per runner slot: quick, and a bit different for each friend (পল্টু, গোপাল, কেলো, লম্বু)
 export const VOICE_RATE = [1.16, 1.08, 1.22, 1.12], SUPER_RATE = 0.97, DOG_RATE = 1.35;
+
+// which voice reads each list of the comment files (same in the game and in tools/make-voices.mjs)
+export const VOICE_OF_KEY = {
+  shopkeeperShout: 'shopkeeper', outsiderMale: 'bystander', outsiderFemale: 'female', walker: 'bystander', levelSpeceficOutsider: 'bystander',
+  friendsFight: 'friend', friendChase: 'friend', friendFall: 'friend', levelSpeceficFriends: 'friend', superSir: 'super', driver: 'driver',
+};
+// the comment files and the audio/voice/<folder> that mirrors each one
+export const VOICE_FILES = { slang: 'slangs.comment.json', noSlang: 'noslangs.comment.json' };

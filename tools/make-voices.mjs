@@ -1,5 +1,11 @@
-// Pre-renders every line in noslangs.comment.json and slangs.comment.json into small MP3 clips (audio/voice/<voice>/*.mp3 + audio/voice/index.json),
-// so voices play in any browser, offline, even where the OS has no Bengali text-to-speech voice.
+// Pre-renders every line in slangs.comment.json and noslangs.comment.json into small MP3 clips, so voices play in any
+// browser, offline, even where the OS has no Bengali text-to-speech voice. The folders mirror the JSON files:
+//
+//   audio/voice/slang/<key>/01.mp3              = slangs.comment.json → <key>[0]
+//   audio/voice/noSlang/<key>/02.mp3            = noslangs.comment.json → <key>[1]
+//   audio/voice/slang/levelSpeceficFriends/level3/01.mp3 = slangs.comment.json → levelSpeceficFriends.l3[0]
+//
+// audio/voice/index.json lists every clip with its line (the game reads it). prequal and _help are never spoken.
 //
 //   pip install edge-tts            (once; needs internet + ffmpeg)
 //   node tools/make-voices.mjs      (only new or changed lines are rendered)
@@ -9,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { voiceKey, voiceId } from '../js/voicekey.js';
+import { voiceKey, voiceId, VOICE_OF_KEY, VOICE_FILES } from '../js/voicekey.js';
 const run = promisify(execFile);
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -25,16 +31,6 @@ export const VOICES = {
   super:      { voice: 'bn-BD-PradeepNeural',  rate: '-6%',  pitch: '-30Hz', volume: '+35%' }, // the old, deep Superintendent
   female:     { voice: 'bn-IN-TanishaaNeural', rate: '+18%', pitch: '+2Hz',  volume: '+30%' }, // bystandersFemale only
 };
-// which voice reads a list, from its key in the comment files
-function voiceFor(keys) {
-  if (keys.includes('outsiderFemale')) return 'female';
-  if (keys.includes('superSir')) return 'super';
-  if (keys.includes('driver')) return 'driver';
-  if (keys.includes('shopkeeperShout')) return 'shopkeeper';
-  if (keys.includes('outsiderMale') || keys.includes('walker') || keys.includes('levelSpeceficOutsider')) return 'bystander';
-  return 'friend'; // friendChase, friendsFight, friendFall, levelSpeceficFriends
-}
-
 // Lines typed in English letters ("kane banra vora ache naki") are shown as typed, but spoken from a Bengali-script
 // spelling. Spellings come from Google's transliteration and are saved in audio/voice/spoken.json —
 // fix a word there if it is pronounced wrong, then run this script again.
@@ -57,35 +53,47 @@ async function speakable(t) {
 }
 
 const BN = /[ঀ-৿]/;
-const want = Object.fromEntries(Object.keys(VOICES).map(v => [v, new Set()]));
-const walk = (v, keys) => {
-  const k = keys[keys.length - 1] || '';
-  if (k.startsWith('_') || k === 'prequal') return; // help notes and the prequel story: shown only, never spoken
-  if (typeof v === 'string') { const t = voiceKey(v); if (t && (BN.test(t) || /[A-Za-z]/.test(t))) want[voiceFor(keys)].add(t); }
-  else if (v && typeof v === 'object') for (const [kk, vv] of Object.entries(v)) walk(vv, [...keys, kk]);
-};
-for (const f of ['noslangs.comment.json', 'slangs.comment.json']) walk(JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8')), []);
-
-if (process.argv.includes('--list')) { for (const [v, set] of Object.entries(want)) console.log(v, set.size, [...set].slice(0, 5)); process.exit(0); }
-
-const idxFile = path.join(OUT, 'index.json');
-let index = {};
-try { index = JSON.parse(fs.readFileSync(idxFile, 'utf8')); } catch (e) { /* first run */ }
-if (!index.friend) index = {}; // old single-voice index: start over
-for (const v of Object.keys(index)) if (!VOICES[v]) delete index[v]; // voices that no longer exist
-const jobs = [];
-for (const [v, set] of Object.entries(want)) {
-  index[v] ||= {};
-  fs.mkdirSync(path.join(OUT, v), { recursive: true });
-  for (const t of set) {
-    const say = await speakable(t); // a fixed spelling in spoken.json or new voice settings give a new id → re-rendered
-    const id = voiceId(t + '|' + say + '|' + JSON.stringify(VOICES[v])), file = path.join(OUT, v, id + '.mp3');
-    if (index[v][t] === id && fs.existsSync(file)) continue;
-    jobs.push({ v, t, say, id, file });
+const two = i => String(i + 1).padStart(2, '0');
+// every spoken line, with the file it goes to
+const want = []; // { sec, key, rel, t, v }
+for (const [sec, file] of Object.entries(VOICE_FILES)) {
+  const J = JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf8'));
+  const add = (key, list, sub) => (Array.isArray(list) ? list : []).forEach((x, i) => {
+    const t = typeof x === 'string' ? voiceKey(x) : '';
+    if (t && (BN.test(t) || /[A-Za-z]/.test(t))) want.push({ sec, key, t, v: VOICE_OF_KEY[key] || 'friend', rel: [sec, key, ...(sub ? [sub] : []), two(i) + '.mp3'].join('/') });
+  });
+  for (const [key, val] of Object.entries(J)) {
+    if (key.startsWith('_') || key === 'prequal') continue;
+    if (Array.isArray(val)) add(key, val);
+    else if (val && typeof val === 'object') for (const [lk, list] of Object.entries(val)) add(key, list, lk.replace(/^l(\d+)$/, 'level$1'));
   }
 }
+if (process.argv.includes('--list')) { for (const w of want) console.log(w.rel, w.v, w.t); process.exit(0); }
+
+// clips already made (any layout) are reused by id, so moving or reordering lines does not re-render them
+const idxFile = path.join(OUT, 'index.json');
+let old = {};
+try { old = JSON.parse(fs.readFileSync(idxFile, 'utf8')); } catch (e) { /* first run */ }
+const POOL = path.join(OUT, '.pool'); fs.rmSync(POOL, { recursive: true, force: true }); fs.mkdirSync(POOL, { recursive: true });
+const stash = (id, f) => { if (fs.existsSync(f) && !fs.existsSync(path.join(POOL, id + '.mp3'))) fs.renameSync(f, path.join(POOL, id + '.mp3')); };
+if (Array.isArray(old.clips)) for (const c of old.clips) stash(c.id, path.join(OUT, c.f));
+else for (const v of Object.keys(old)) if (old[v] && typeof old[v] === 'object') for (const id of Object.values(old[v])) stash(id, path.join(OUT, v, id + '.mp3')); // old per-voice layout
+for (const sec of Object.keys(VOICE_FILES)) fs.rmSync(path.join(OUT, sec), { recursive: true, force: true });
+for (const d of Object.keys(VOICES)) fs.rmSync(path.join(OUT, d), { recursive: true, force: true }); // old per-voice folders
+
+const clips = [], jobs = [];
+for (const w of want) {
+  const say = await speakable(w.t); // a fixed spelling in spoken.json or new voice settings give a new id → re-rendered
+  const id = voiceId(w.t + '|' + say + '|' + JSON.stringify(VOICES[w.v])), file = path.join(OUT, w.rel);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  clips.push({ f: w.rel, t: w.t, v: w.v, id });
+  const pooled = path.join(POOL, id + '.mp3');
+  if (fs.existsSync(pooled)) fs.copyFileSync(pooled, file);
+  else jobs.push({ v: w.v, t: w.t, say, id, file, pooled });
+}
 let made = 0, failed = 0;
-async function render({ v, t, say, id, file }) {
+async function render({ v, t, say, id, file, pooled }) {
+  if (fs.existsSync(pooled)) { fs.copyFileSync(pooled, file); return; } // the same line was just rendered for another list
   const P = VOICES[v], raw = file + '.raw.mp3';
   try {
     await run(EDGE, ['--voice', P.voice, `--rate=${P.rate}`, `--pitch=${P.pitch}`, `--volume=${P.volume}`, '--text', say, '--write-media', raw]);
@@ -95,21 +103,17 @@ async function render({ v, t, say, id, file }) {
       'acompressor=threshold=-24dB:ratio=6:attack=3:release=70:makeup=5,volume=5dB,asoftclip=type=tanh,' +
       'equalizer=f=2600:t=q:w=1.2:g=4,equalizer=f=180:t=q:w=1:g=2,alimiter=limit=0.93',
       '-ac', '1', '-ar', '24000', '-b:a', '40k', file]);
-    index[v][t] = id; made++;
+    fs.copyFileSync(file, pooled); made++;
   } catch (e) { failed++; console.warn('skip', v, JSON.stringify(t), e.message.split('\n')[0]); }
   fs.rmSync(raw, { force: true });
 }
 const queue = jobs.slice();
 await Promise.all(Array.from({ length: 6 }, async () => { while (queue.length) await render(queue.shift()); }));
+fs.rmSync(POOL, { recursive: true, force: true });
+for (const f of fs.readdirSync(OUT)) if (f.endsWith('.mp3')) fs.rmSync(path.join(OUT, f)); // strays from very old layouts
 
-// drop clips for lines that are gone, and anything left over from the old single-voice layout
-for (const v of Object.keys(index)) for (const t of Object.keys(index[v])) if (!want[v] || !want[v].has(t)) delete index[v][t];
-for (const f of fs.readdirSync(OUT)) if (f.endsWith('.mp3')) fs.rmSync(path.join(OUT, f));
-for (const v of Object.keys(want)) {
-  const keep = new Set(Object.values(index[v]).map(id => id + '.mp3'));
-  for (const f of fs.readdirSync(path.join(OUT, v))) if (!keep.has(f)) fs.rmSync(path.join(OUT, v, f));
-}
-fs.writeFileSync(idxFile, JSON.stringify(index));
+const ok = clips.filter(c => fs.existsSync(path.join(OUT, c.f)));
+fs.writeFileSync(idxFile, JSON.stringify({ clips: ok.map(({ f, t, v, id }) => ({ f, t, v, id })) }, null, 1));
 fs.writeFileSync(SPOKEN_FILE, JSON.stringify(spoken, null, 1));
-for (const d of fs.readdirSync(OUT)) if (fs.statSync(path.join(OUT, d)).isDirectory() && !VOICES[d]) fs.rmSync(path.join(OUT, d), { recursive: true });
-console.log(Object.entries(want).map(([v, s]) => `${v}: ${s.size}`).join(', '), `| ${made} new clips, ${failed} failed`);
+const per = {}; for (const c of ok) { const k = c.f.split('/')[0]; per[k] = (per[k] || 0) + 1; }
+console.log(Object.entries(per).map(([k, n]) => `${k}: ${n} clips`).join(', '), `| ${made} rendered, ${ok.length - made} reused, ${failed} failed`);
