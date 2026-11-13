@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { mat, mesh, boxG, makeNPC, makeBoat, makeDog } from './models.js';
 import { buildSight, SIGHT_KIND, SIGHT_ROOM, SIGHT_NAME, Train } from './kolkata.js';
-import { SHOP_NAMES } from './stories.js';
+import { SHOP_NAMES, boards, sign, split } from './texts.js';
 import { CULVERT_HALF } from './track.js';
 
 export const CHUNK = 40;
@@ -42,17 +42,12 @@ export function signTexture(text, bg, fg, sub = '', w = 512, h = 140) {
 }
 const noise = (g, w, h, n, cols) => { for (let i = 0; i < n; i++) { g.fillStyle = cols[(Math.random() * cols.length) | 0]; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); } };
 
-// Shop names come from shops.json → shopNames ("নাম | নিচের লেখা" adds a smaller second line).
+// Shop names come from texts.json → shopNames ("নাম | নিচের লেখা" adds a smaller second line).
 const shopList = () => SHOP_NAMES.filter(x => typeof x === 'string' && x.trim())
-  .map(x => { const [n, sub = ''] = x.split('|').map(t => t.trim()); return { name: n, sub }; });
+  .map(x => { const [n, sub] = split(x); return { name: n, sub }; });
 const SIGN_COLORS = [['#ffd400', '#b3001b'], ['#ffffff', '#0b3d91'], ['#c0001a', '#ffffff'], ['#0b7a3e', '#ffffff'],
   ['#1e3a8a', '#ffe14a'], ['#ff7a00', '#ffffff'], ['#fff1c1', '#7a1f00'], ['#6a1b9a', '#fff176']];
-const HOARDINGS = [
-  ['ভালো হচ্ছে না কিন্তু!', 'দৌড়াও কলকাতা'], ['ধর ধর!', 'বন্ধু দৌড় ২০২৬'], ['শহর পরিষ্কার রাখুন', ''],
-  ['সাবধানে চলুন', 'জীবন অমূল্য'], ['গরম চা, গরম শিঙাড়া', 'মোড়ের দোকানে'], ['ধরে কেলাবো!', ''],
-  ['কলকাতা, প্রাণের শহর', ''], ['আজ ফুটবল ম্যাচ!', 'সন্ধ্যা ৬টা, পাড়ার মাঠ'],
-];
-const MARKET_BANNERS = [['হাট বাজার', 'সোম থেকে রবি'], ['টাটকা সবজি', 'ন্যায্য দামে'], ['মাছ-মাংস-ডিম', ''], ['পুজোর সেল!', '৫০% ছাড়']];
+// hoardings, market banners and road signs also come from texts.json
 
 let T = null;
 function buildTextures() {
@@ -84,7 +79,7 @@ function buildTextures() {
     noise(g, w, h, 5000, ['#9a9386', '#7a7468', '#a59e90', '#6e685e']);
     for (let i = 0; i < 6; i++) { g.fillStyle = Math.random() < 0.5 ? '#55555a' : '#5b4a36'; g.fillRect(Math.random() * w * 0.7, Math.random() * h, 40 + Math.random() * 60, 30 + Math.random() * 50); }
   }, true);
-  T.workSign = signTexture('রাস্তার কাজ চলছে', '#ff6a00', '#111111', 'সাবধানে চলুন 🚧', 512, 150);
+  T.workSign = signTexture(...sign('roadSigns', 'roadWork'), '#ff6a00', '#111111', 512, 150);
   T.barricade = canvasTex(128, 32, (g, w, h) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#ffffff' : '#ff6a00'; g.fillRect(i * 16, 0, 16, h); } }, true);
   T.grass = canvasTex(128, 128, (g, w, h) => { g.fillStyle = '#69b345'; g.fillRect(0, 0, w, h); noise(g, w, h, 700, ['#5ea23d', '#78c252', '#4f8f33']); }, true);
   T.paddy = canvasTex(128, 128, (g, w, h) => {
@@ -137,18 +132,18 @@ function buildTextures() {
   T.stallSigns = (shops.length ? shops : fallback).map(({ name }) => { const [bg, fg] = sc(); return signTexture(name, bg, fg, '', 512, 120); });
   T.food = {};
   for (const { name, sub } of shopList()) if (FOOD[name]) T.food[name] = signTexture(name, FOOD[name].bg, FOOD[name].fg, sub, 768, 190);
-  T.hoard = HOARDINGS.map(([t, s]) => { const [bg, fg] = sc(); return signTexture(t, bg, fg, s, 512, 220); });
-  T.market = MARKET_BANNERS.map(([t, s]) => { const [bg, fg] = sc(); return signTexture(t, bg, fg, s, 512, 120); });
-  T.gate = signTexture('বন্ধু মহাবিদ্যালয়', '#ffffff', '#8b1a1a', 'স্থাপিত ১৯৫৬', 768, 180);
-  T.gateBack = signTexture('আবার আসবেন', '#ffffff', '#8b1a1a', 'ধন্যবাদ', 512, 140);
-  T.campusSign = signTexture('কলেজ ক্যাম্পাস', '#0b5d1e', '#ffffff', 'ধীরে চলুন 😅', 512, 160);
-  T.hostelSign = signTexture('ছাত্রাবাস', '#ffe9a8', '#5a2d0c', 'বয়েজ হোস্টেল', 512, 150);
-  T.finish = signTexture('হোস্টেলের গেট • শেষ সীমানা', '#ffffff', '#8b1a1a', 'সুপার স্যার অপেক্ষা করছেন 👀', 768, 180);
-  T.junction = signTexture('← সোজা: শেষ সীমানা', '#0b7a3e', '#ffffff', 'ডানদিকে: বড়বাজার →', 512, 160);
-  T.bridge = signTexture('নদীর সেতু', '#1e3a8a', '#ffffff', 'সেতুর উপর দৌড়ানো নিষেধ 😅', 512, 150);
+  T.hoard = boards('hoardings', [['বাডি রেস', '']]).map(([t, s]) => { const [bg, fg] = sc(); return signTexture(t, bg, fg, s, 512, 220); });
+  T.market = boards('marketBanners', [['বাজার', '']]).map(([t, s]) => { const [bg, fg] = sc(); return signTexture(t, bg, fg, s, 512, 120); });
+  T.gate = signTexture(sign('roadSigns', 'collegeGate')[0], '#ffffff', '#8b1a1a', sign('roadSigns', 'collegeGate')[1], 768, 180);
+  T.gateBack = signTexture(sign('roadSigns', 'collegeGateBack')[0], '#ffffff', '#8b1a1a', sign('roadSigns', 'collegeGateBack')[1], 512, 140);
+  T.campusSign = signTexture(sign('roadSigns', 'campus')[0], '#0b5d1e', '#ffffff', sign('roadSigns', 'campus')[1], 512, 160);
+  T.hostelSign = signTexture(sign('roadSigns', 'hostel')[0], '#ffe9a8', '#5a2d0c', sign('roadSigns', 'hostel')[1], 512, 150);
+  T.finish = signTexture(sign('roadSigns', 'finish')[0], '#ffffff', '#8b1a1a', sign('roadSigns', 'finish')[1], 768, 180);
+  T.junction = signTexture(sign('roadSigns', 'junction')[0], '#0b7a3e', '#ffffff', sign('roadSigns', 'junction')[1], 512, 160);
+  T.bridge = signTexture(sign('roadSigns', 'bridge')[0], '#1e3a8a', '#ffffff', sign('roadSigns', 'bridge')[1], 512, 150);
   T.canal = T.water.clone(); T.canal.needsUpdate = true; T.canal.wrapS = T.canal.wrapT = THREE.RepeatWrapping; T.canal.repeat.set(8, 1);
-  T.canalSign = signTexture('খাল', '#1e3a8a', '#ffffff', 'সাবধানে পার হোন', 512, 150);
-  T.village = signTexture('সবুজপুর গ্রাম', '#fff1c1', '#2d6a1f', 'স্বাগতম', 512, 150);
+  T.canalSign = signTexture(sign('roadSigns', 'canal')[0], '#1e3a8a', '#ffffff', sign('roadSigns', 'canal')[1], 512, 150);
+  T.village = signTexture(sign('roadSigns', 'village')[0], '#fff1c1', '#2d6a1f', sign('roadSigns', 'village')[1], 512, 150);
   T.checker = canvasTex(128, 32, (g) => { for (let x = 0; x < 16; x++) for (let y = 0; y < 4; y++) { g.fillStyle = (x + y) % 2 ? '#111' : '#fff'; g.fillRect(x * 8, y * 8, 8, 8); } });
   T.checker.magFilter = THREE.NearestFilter;
   for (const k in T) { const v = T[k]; if (Array.isArray(v)) v.forEach(t => t.userData.shared = true); else if (v.isTexture) v.userData.shared = true; else Object.values(v).forEach(t => t.userData.shared = true); }
@@ -280,11 +275,11 @@ function marketStall(g, x, z) {
   mesh(cylG(0.04, 0.04, 2.4), mat(0x555555), x, 1.7, z, g);
   stallBoard(g, x - Math.sign(x) * 0.85, 2.2, z, 2.2);
 }
-function stallBoard(g, x, y, z, w) { // a name board facing the road (from shops.json)
+function stallBoard(g, x, y, z, w) { // a name board facing the road (from texts.json)
   if (!T.stallSigns || !T.stallSigns.length) return;
   const b = sign2(w, w * 0.24, pick(T.stallSigns), g); b.position.set(x, y, z); b.rotation.y = Math.PI / 2;
 }
-// ---------- the food shops (each matched by its name in shops.json) ----------
+// ---------- the food shops (each matched by its name in texts.json) ----------
 const sphCache = {};
 const sphG = r => { if (!sphCache[r]) { sphCache[r] = new THREE.SphereGeometry(r, 10, 8); sphCache[r].userData.shared = true; } return sphCache[r]; };
 const glow = c => new THREE.MeshBasicMaterial({ color: c });
@@ -806,7 +801,7 @@ export class World {
     return o;
   }
 
-  // the food shops listed in shops.json, taken in turn so a race passes all of them
+  // the food shops listed in texts.json, taken in turn so a race passes all of them
   foodShop(kind) {
     const list = shopList().map(x => x.name).filter(n => FOOD[n] && FOOD[n].kind === kind);
     if (!list.length) return null;

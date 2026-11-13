@@ -2,12 +2,12 @@
 // Everything the game needs is cached on the first visit (voice clips included). Files are served from the cache
 // straight away and refreshed in the background, so a new version shows up on the next launch.
 // Bump VERSION when files are removed or renamed, to clear out the old cache.
-const VERSION = 'buddyrace-v8';
+const VERSION = 'buddyrace-v12';
 const CORE = [
-  './', 'index.html', 'manifest.webmanifest', 'noslangs.comment.json', 'slangs.comment.json', 'shops.json', 'css/style.css', 'vendor/three.module.js',
+  './', 'index.html', 'manifest.webmanifest', 'noslangs.comment.json', 'slangs.comment.json', 'texts.json', 'css/style.css', 'vendor/three.module.js',
   'js/main.js', 'js/audio.js', 'js/input.js', 'js/intro.js', 'js/levels.js', 'js/models.js', 'js/net.js',
-  'js/stories.js', 'js/track.js', 'js/voicekey.js', 'js/world.js', 'js/kolkata.js', 'js/sky.js',
-  'audio/animal/dog1.mp3', 'audio/animal/dog2.mp3', 'audio/animal/dog3.mp3', 'audio/animal/cow1.mp3', 'audio/animal/cow2.mp3', 'audio/animal/goat1.mp3', 'audio/animal/goat2.mp3', 'audio/animal/goat3.mp3', 'audio/animal/goat4.mp3',
+  'js/stories.js', 'js/texts.js', 'js/track.js', 'js/voicekey.js', 'js/world.js', 'js/kolkata.js', 'js/sky.js',
+  'audio/other/bell1.mp3', 'audio/other/bell2.mp3', 'audio/other/dog1.mp3', 'audio/other/dog2.mp3', 'audio/other/dog3.mp3', 'audio/other/cow1.mp3', 'audio/other/cow2.mp3', 'audio/other/goat1.mp3', 'audio/other/goat2.mp3', 'audio/other/goat3.mp3', 'audio/other/goat4.mp3',
   'audio/voice/index.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-192.png', 'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'icons/favicon-64.png',

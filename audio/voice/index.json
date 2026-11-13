@@ -2,33 +2,51 @@
  "clips": [
   {
    "f": "slang/shopkeeperShout/01.mp3",
-   "t": "সবজি! টাটকা সবজি!",
+   "t": "সবজি! টাটকা সবজি! নিয়ে যাও দাদা, সস্তায়!",
    "v": "shopkeeper",
-   "id": "3beb43b8"
+   "id": "58409a22"
   },
   {
    "f": "slang/shopkeeperShout/02.mp3",
-   "t": "চা খেয়ে যাও!",
+   "t": "চা খেয়ে যাও! গরম চা!",
    "v": "shopkeeper",
-   "id": "a1066fcc"
+   "id": "27ae864c"
   },
   {
    "f": "slang/shopkeeperShout/03.mp3",
-   "t": "লোলি চাওয়ালা",
+   "t": "রাজু দার পকেট পরোটা",
    "v": "shopkeeper",
-   "id": "7e2163ac"
+   "id": "dcafe9e8"
   },
   {
    "f": "slang/shopkeeperShout/04.mp3",
-   "t": "কাজু দার পকেট পরোটা",
+   "t": "এক প্লেটে ৩টে পরোটা, আনলিমিটেড তরকারি, একটা আপেল পেঁয়াজ!",
    "v": "shopkeeper",
-   "id": "74c5d0d0"
+   "id": "ce303444"
   },
   {
    "f": "slang/shopkeeperShout/05.mp3",
-   "t": "মাছ নিয়ে যান, সস্তা ইলিশ!",
+   "t": "মাছ নিয়ে যান দাদা, পদ্মার ইলিশ, সস্তা ইলিশ!",
    "v": "shopkeeper",
-   "id": "f989d0d6"
+   "id": "d66d6430"
+  },
+  {
+   "f": "slang/shopkeeperShout/06.mp3",
+   "t": "ঝালমুড়ি, ঘুগনি মুড়ি, চপ মুড়ি!",
+   "v": "shopkeeper",
+   "id": "e328a46c"
+  },
+  {
+   "f": "slang/shopkeeperShout/07.mp3",
+   "t": "মোবাইল রিচার্জ",
+   "v": "shopkeeper",
+   "id": "5f5688ec"
+  },
+  {
+   "f": "slang/shopkeeperShout/08.mp3",
+   "t": "৪০ টাকার মাল ২০ টাকায়, নিয়ে যান দাদা, লাস্ট স্টক আছে!",
+   "v": "shopkeeper",
+   "id": "ec3ccac4"
   },
   {
    "f": "slang/outsiderMale/01.mp3",
@@ -67,6 +85,18 @@
    "id": "e3cb4316"
   },
   {
+   "f": "slang/outsiderMale/07.mp3",
+   "t": "গাঁড় মারিয়েছে রে!",
+   "v": "bystander",
+   "id": "aac853f8"
+  },
+  {
+   "f": "slang/outsiderMale/08.mp3",
+   "t": "বিচি টাকে উঠে গেছে রে!",
+   "v": "bystander",
+   "id": "5c19a0e2"
+  },
+  {
    "f": "slang/outsiderFemale/01.mp3",
    "t": "হতচ্ছাড়া!",
    "v": "female",
@@ -92,6 +122,12 @@
   },
   {
    "f": "slang/outsiderFemale/05.mp3",
+   "t": "এরা একদিন অনেক বড় বোকাচোদা তৈরি হবে!",
+   "v": "female",
+   "id": "106ce4bb"
+  },
+  {
+   "f": "slang/outsiderFemale/06.mp3",
    "t": "বাল পাকা ছেলে!",
    "v": "female",
    "id": "6c3da1e1"
@@ -110,9 +146,9 @@
   },
   {
    "f": "slang/friendsFight/03.mp3",
-   "t": "গান্ডু, এদিকে",
+   "t": "গান্ডু!",
    "v": "friend",
-   "id": "f16fb826"
+   "id": "37d24416"
   },
   {
    "f": "slang/friendsFight/04.mp3",
@@ -134,9 +170,69 @@
   },
   {
    "f": "slang/friendsFight/07.mp3",
-   "t": "আয় পাগলাচোদা!",
+   "t": "গাঁড় মেরে দিল রে!",
    "v": "friend",
-   "id": "70756d82"
+   "id": "4b5a62a2"
+  },
+  {
+   "f": "slang/friendsFight/08.mp3",
+   "t": "আবে ওই পাগলাচোদা!",
+   "v": "friend",
+   "id": "824dd5f2"
+  },
+  {
+   "f": "slang/friendsFight/09.mp3",
+   "t": "শালা লাওড়া ছুঁড়ে মারব, সবার মাথা ফেটে যাবে!",
+   "v": "friend",
+   "id": "8bd3f182"
+  },
+  {
+   "f": "slang/friendsFight/10.mp3",
+   "t": "শালা চুদির ভাই চমচম!",
+   "v": "friend",
+   "id": "621c87ec"
+  },
+  {
+   "f": "slang/friendsFight/11.mp3",
+   "t": "বাল, বিচিতে লেগে গেল বে!",
+   "v": "friend",
+   "id": "d1770992"
+  },
+  {
+   "f": "slang/friendsFight/12.mp3",
+   "t": "মুখে নিবি?",
+   "v": "friend",
+   "id": "31c6df90"
+  },
+  {
+   "f": "slang/friendsFight/13.mp3",
+   "t": "বাঁশ কেন ঝাড়ে, এসো আমার গাঁড়ে!",
+   "v": "friend",
+   "id": "73663a34"
+  },
+  {
+   "f": "slang/friendsFight/14.mp3",
+   "t": "আরে করবি বাড়া!",
+   "v": "friend",
+   "id": "63e40552"
+  },
+  {
+   "f": "slang/friendsFight/15.mp3",
+   "t": "চুদির ভাই তো গাঁড়ে ছাতা ভরে দেবে রে!",
+   "v": "friend",
+   "id": "136e1a82"
+  },
+  {
+   "f": "slang/friendsFight/16.mp3",
+   "t": "ওরে বোকাচোদা, গাঁড় মারা গেল রে!",
+   "v": "friend",
+   "id": "06fdd646"
+  },
+  {
+   "f": "slang/friendsFight/17.mp3",
+   "t": "তাতে আমার বাল ছেঁড়া গেল!",
+   "v": "friend",
+   "id": "e9a3f47a"
   },
   {
    "f": "slang/friendChase/01.mp3",
@@ -266,12 +362,42 @@
   },
   {
    "f": "slang/friendChase/22.mp3",
-   "t": "তোর অণ্ডকোষ খণ্ড করে দেব!",
+   "t": "চোদনা!",
    "v": "friend",
-   "id": "b1fbd042"
+   "id": "82bf45d2"
   },
   {
    "f": "slang/friendChase/23.mp3",
+   "t": "চুতমারানি!",
+   "v": "friend",
+   "id": "96349fc4"
+  },
+  {
+   "f": "slang/friendChase/24.mp3",
+   "t": "ভেড়াচ্চোদা!",
+   "v": "friend",
+   "id": "3b5fd612"
+  },
+  {
+   "f": "slang/friendChase/25.mp3",
+   "t": "লেওড়া!",
+   "v": "friend",
+   "id": "7dca378a"
+  },
+  {
+   "f": "slang/friendChase/26.mp3",
+   "t": "নির্বীজ কোথাকার!",
+   "v": "friend",
+   "id": "eb27e50c"
+  },
+  {
+   "f": "slang/friendChase/27.mp3",
+   "t": "বানচোত",
+   "v": "friend",
+   "id": "6aa9ed98"
+  },
+  {
+   "f": "slang/friendChase/28.mp3",
    "t": "বালের দম নেই, দৌড়বি?",
    "v": "friend",
    "id": "08541b9e"
@@ -344,243 +470,63 @@
   },
   {
    "f": "slang/levelSpeceficFriends/level1/01.mp3",
-   "t": "লুচি ফেরত দে, লুচি চোর!",
+   "t": "শালা হারামিচোদা, গুদমারানির ভাই, লুচি তোর গাঁড়ে ভরে দেব!",
    "v": "friend",
-   "id": "b93195ae"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level1/02.mp3",
-   "t": "লুচি চোর!",
-   "v": "friend",
-   "id": "1ba3d692"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level1/03.mp3",
-   "t": "ধর লুচি চোরকে!",
-   "v": "friend",
-   "id": "27504634"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level1/04.mp3",
-   "t": "লুচি ফেরত দে!",
-   "v": "friend",
-   "id": "4f46f65a"
+   "id": "ca9c5a32"
   },
   {
    "f": "slang/levelSpeceficFriends/level2/01.mp3",
-   "t": "চশমা ভাঙলি, এবার তোর মাথা ভাঙব!",
+   "t": "গান্ডু, গাঁড়ে গিরগিটি ভরে দেব, গুদমারানির ভাই, কানাচোদা!",
    "v": "friend",
-   "id": "09041c7e"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level2/02.mp3",
-   "t": "চশমা ভাঙলি কেন!",
-   "v": "friend",
-   "id": "58dd5982"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level2/03.mp3",
-   "t": "কিছু দেখতে পাচ্ছি না!",
-   "v": "friend",
-   "id": "c3498462"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level2/04.mp3",
-   "t": "নতুন চশমা কিনে দে!",
-   "v": "friend",
-   "id": "eec93642"
+   "id": "88e8da62"
   },
   {
    "f": "slang/levelSpeceficFriends/level3/01.mp3",
-   "t": "আমার লাকি পেন ফেরত দে!",
+   "t": "লাওড়া কানাচোদা, আমার পেন ছুঁড়ে ভাঙলি! বাল, আজ লাওড়া ছুঁড়ে তোদের মাথা ফাটাব, বেদোচোদা!",
    "v": "friend",
-   "id": "0d094648"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level3/02.mp3",
-   "t": "পেন চোর!",
-   "v": "friend",
-   "id": "e0d37908"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level3/03.mp3",
-   "t": "পেন ফেরত দে!",
-   "v": "friend",
-   "id": "a12af334"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level3/04.mp3",
-   "t": "ঢাকনা চিবোলি কেন?",
-   "v": "friend",
-   "id": "75ad901a"
+   "id": "20ce5906"
   },
   {
    "f": "slang/levelSpeceficFriends/level4/01.mp3",
-   "t": "লুচি ফেরত দে, লুচি চোর!",
+   "t": "বাল বোকাচোদা, তোর ডিম ছিঁড়ে নেব আজ! আজ তোর ডিম দিয়ে অমলেট বানাব, গুদির ভাই!",
    "v": "friend",
-   "id": "b93195ae"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level4/02.mp3",
-   "t": "ডিম চোর!",
-   "v": "friend",
-   "id": "2d69de0a"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level4/03.mp3",
-   "t": "ডিম ফেরত দে!",
-   "v": "friend",
-   "id": "9f4491da"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level4/04.mp3",
-   "t": "পকেটে ডিম!",
-   "v": "friend",
-   "id": "1f6b879c"
+   "id": "ddecf32a"
   },
   {
    "f": "slang/levelSpeceficFriends/level5/01.mp3",
-   "t": "জানলা ভেঙে আমার নাম? দাঁড়া!",
+   "t": "জানলার কাচ ভাঙলি, আবালচোদার দল! তোদের কি বাড়া অণ্ডকোষে গণ্ডগোল আছে?",
    "v": "friend",
-   "id": "8efe0462"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level5/02.mp3",
-   "t": "জানলা ভাঙলি কেন!",
-   "v": "friend",
-   "id": "1d0f0d02"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level5/03.mp3",
-   "t": "আমার নাম দিলি কেন?",
-   "v": "friend",
-   "id": "d6d70e68"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level5/04.mp3",
-   "t": "মিথ্যুক!",
-   "v": "friend",
-   "id": "a2b9d134"
+   "id": "29ee26a2"
   },
   {
    "f": "slang/levelSpeceficFriends/level6/01.mp3",
-   "t": "রিমোট চোর, ধর ওকে!",
+   "t": "গাঁড়পেঁয়াজি বেড়েছে তোদের! গাঁড়ে রিমোট ভরে চ্যানেল চেঞ্জ করে দেব তোর!",
    "v": "friend",
-   "id": "fa044bd0"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level6/02.mp3",
-   "t": "রিমোট চোর!",
-   "v": "friend",
-   "id": "6da9e370"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level6/03.mp3",
-   "t": "রিমোট ফেরত দে!",
-   "v": "friend",
-   "id": "4a59fd24"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level6/04.mp3",
-   "t": "সিরিয়ালখোর!",
-   "v": "friend",
-   "id": "77f9ed48"
+   "id": "28e14cd2"
   },
   {
    "f": "slang/levelSpeceficFriends/level7/01.mp3",
-   "t": "মুখে গোঁফ আঁকলি? দাঁড়া!",
+   "t": "শালা গুদমারানি, ফ্যাদামুখো, কেলানে গুদো, আঁতেলচোদা!",
    "v": "friend",
-   "id": "5cd0592c"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level7/02.mp3",
-   "t": "গোঁফ এঁকেছিস কেন?",
-   "v": "friend",
-   "id": "cadb8a12"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level7/03.mp3",
-   "t": "মুখে টুথপেস্ট!",
-   "v": "friend",
-   "id": "c5e2964c"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level7/04.mp3",
-   "t": "প্র্যাঙ্ক দেখাচ্ছি!",
-   "v": "friend",
-   "id": "771989b2"
+   "id": "1f55d7f6"
   },
   {
    "f": "slang/levelSpeceficFriends/level8/01.mp3",
-   "t": "আবার গোঁফ আঁকলি? আজ তোর হচ্ছে!",
+   "t": "গুদমারানির ভাই, মুখে আঁকলি কেন? তোর বাড়ায় বিছুটি পাতা ঘষে দেব!",
    "v": "friend",
-   "id": "f7db77c2"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level8/02.mp3",
-   "t": "গোঁফ এঁকেছিস কেন?",
-   "v": "friend",
-   "id": "cadb8a12"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level8/03.mp3",
-   "t": "মুখে টুথপেস্ট!",
-   "v": "friend",
-   "id": "c5e2964c"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level8/04.mp3",
-   "t": "প্র্যাঙ্ক দেখাচ্ছি!",
-   "v": "friend",
-   "id": "771989b2"
+   "id": "4b900bbc"
   },
   {
    "f": "slang/levelSpeceficFriends/level9/01.mp3",
-   "t": "সিঙাড়া ফেললি, এবার তোর পালা!",
+   "t": "সিঙাড়া ফেললি কেন, চোদনা কোথাকার! আজ তোদের গাঁড়ে গরম সিঙাড়া ভরে দেব!",
    "v": "friend",
-   "id": "417b4186"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level9/02.mp3",
-   "t": "সিঙাড়া ফেললি কেন!",
-   "v": "friend",
-   "id": "22d9547c"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level9/03.mp3",
-   "t": "আমায় ধাক্কা মারলি কেন?",
-   "v": "friend",
-   "id": "06973f12"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level9/04.mp3",
-   "t": "চপ্পল কে ছুঁড়েছে?",
-   "v": "friend",
-   "id": "18ab9b18"
+   "id": "0e6f292e"
   },
   {
    "f": "slang/levelSpeceficFriends/level10/01.mp3",
-   "t": "টুকলিবাজ টপার, ধর!",
+   "t": "গান্ডু কেলাচোদা টুকলিবাজ টপার, বাড়া আবালচোদা!",
    "v": "friend",
-   "id": "327e3904"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level10/02.mp3",
-   "t": "টপার ধর!",
-   "v": "friend",
-   "id": "1ac986ec"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level10/03.mp3",
-   "t": "টুকলিবাজ!",
-   "v": "friend",
-   "id": "f154b986"
-  },
-  {
-   "f": "slang/levelSpeceficFriends/level10/04.mp3",
-   "t": "নোট দিস নি কেন?",
-   "v": "friend",
-   "id": "6eca0aee"
+   "id": "63abead0"
   },
   {
    "f": "slang/levelSpeceficOutsider/level1/01.mp3",
@@ -605,12 +551,6 @@
    "t": "চা খেয়ে যাও ভাই!",
    "v": "bystander",
    "id": "1936d580"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level1/05.mp3",
-   "t": "বিস্কুট নেবে?",
-   "v": "bystander",
-   "id": "aa80d128"
   },
   {
    "f": "slang/levelSpeceficOutsider/level2/01.mp3",

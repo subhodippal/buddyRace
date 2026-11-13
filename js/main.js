@@ -8,8 +8,9 @@ import * as M from './models.js';
 import { initAudio, sfx, say as tts, setVoice, pauseAudio, resumeAudio, setMuted, isMuted, startMusic as startMusicA, stopMusic as stopMusicA, setMusicFast, startRain, stopRain } from './audio.js';
 import { Sky } from './sky.js';
 import { playSlides, closeStory } from './intro.js';
-import { STORIES, line, introSlides, endingSlides, storyForLevel, FRIENDS, levelScript, levelLine } from './stories.js';
+import { STORIES, line, introSlides, endingSlides, storyForLevel, FRIENDS, levelScript, levelLine, resetLines } from './stories.js';
 import { VOICE_RATE, SUPER_RATE } from './voicekey.js';
+import { applyMenu, menuText, TEXTS, split } from './texts.js';
 import { initInput, held, pollGamepad, openControls, closeControls, isPanelOpen, touchEnabled, bindingLabel, isTouchDevice as isTouch, setting, setSetting, steerAxis, startGyro, calibrateGyro, recenterGyro } from './input.js';
 import { net, hostRoom, joinRoom, findMatch, lanAvailable, lanRooms, lanHost, send, sendTo, broadcast, leave } from './net.js';
 
@@ -35,7 +36,15 @@ const CHARS = [
   { name: FRIENDS[1], en: 'Gopal', color: '#2e86de', shirt: 0x2e86de, lungi: 0x3c8d5a, skin: 0xa8703f },
   { name: FRIENDS[2], en: 'Kelo', color: '#27ae60', shirt: 0x27ae60, pants: 0x6b4f2a, skin: 0xd19a66, glasses: true },
   { name: FRIENDS[3], en: 'Lombu', color: '#e1b000', shirt: 0xf1c40f, pants: 0x333333, skin: 0xb87a4b, hair: 0x2b1a10 },
+  // seats 5–8, only used in a friends' room (bigger groups)
+  { name: 'বিল্টু', en: 'Biltu', color: '#9b59b6', shirt: 0x9b59b6, pants: 0x2c2c54, skin: 0xc68642 },
+  { name: 'হাবুল', en: 'Habul', color: '#e67e22', shirt: 0xe67e22, lungi: 0x6d4c41, skin: 0xa8703f },
+  { name: 'ঝন্টু', en: 'Jhontu', color: '#16a085', shirt: 0x1abc9c, pants: 0x444444, skin: 0xd19a66, hair: 0x2b1a10 },
+  { name: 'পটলা', en: 'Potla', color: '#e84393', shirt: 0xe84393, pants: 0x2d3f73, skin: 0xb87a4b, glasses: true },
 ];
+const SEATS = 4;      // single player and online matches: four runners, computer fills empty seats
+const ROOM_MAX = 8;   // friends' room / Wi-Fi room: 2–8 real players, no computer runners
+const ROOM_MIN = 2;
 const BASE_NAMES = LEVELS.map(L => L.bn);
 function levelTitles() { // level names come from the comment file in use → prequal → lN.title
   LEVELS.forEach((L, i) => { const t = (levelScript(i + 1, setting('slang')) || {}).title; L.bn = typeof t === 'string' && t.trim() ? t.trim() : BASE_NAMES[i]; });
@@ -86,7 +95,8 @@ for (const id of ['btnPlay', 'btnMP']) $(id).addEventListener('click', () => { g
 let levelIdx = 0, level = LEVELS[0], track = null, world = null;
 let state = 'title'; // title | levels | lobby | story | countdown | playing | ending | results
 let menuOpen = false, goReceived = false;
-const runners = [];
+const runners = [];      // the runners in this race (index = slot)
+const ALL_RUNNERS = []; // every runner model (8); runners is the first N of these
 let player = null;
 let obstacles = [], pickups = [], projectiles = [], dogs = [];
 const obById = new Map(), pkById = new Map(), dogById = new Map();
@@ -98,7 +108,7 @@ let superM = null;
 const superObj = { x: 0, y: 0, z: 0 };
 const brawlCloud = makeBrawlCloud();
 
-const L = cat => line(cat, setting('slang'), story, level.id);
+const L = cat => line(cat, setting('slang'), story, level.id, track && player ? clamp(player.z / track.finish, 0, 1) : 0);
 // obstacles that talk (only lines from the comment files): stall carts = shopkeepers, walkers, vehicle drivers.
 // Animals, bells and horns make their sound but show no text.
 const isVehicle = o => o.vehicle || ['rickshaw', 'cycle', 'auto', 'toto', 'bike', 'taxi', 'tram', 'handrick'].includes(o.kind);
@@ -180,8 +190,10 @@ function talk(obj, cat, life = 1.5, yOff) { // a line from a category; clients p
 }
 let othersLeft = 3, othersNextT = 10, crawlHinted = false;
 function otherCanTalk() { return othersLeft > 0 && raceTime >= othersNextT; }
-function otherTalked() { othersLeft--; othersNextT = raceTime + rand(10, 18); }
-function otherSay(o, text, life, yOff) { if (!text || !otherCanTalk()) return; otherTalked(); say(o, text, life, yOff); }
+function otherTalked() { othersLeft--; othersNextT = raceTime + rand(8, 14); }
+function otherSay(o, text, life, yOff) { // text can be a function, so a line is only used up when it is really said
+  if (!otherCanTalk()) return; const t = typeof text === 'function' ? text() : text; if (!t) return; otherTalked(); say(o, t, life, yOff);
+}
 function say(obj, text, life = 1.5, yOff) {
   bubble(obj, text, life, yOff);
   const ref = refOf(obj); if (ref) emit({ e: 'tx', k: ref[0], i: ref[1], x: text, l: life, y: yOff });
@@ -201,7 +213,7 @@ function updateLabels(dt) {
   const inRace = state === 'countdown' || state === 'playing';
   const tagTop = new Map();
   for (const r of runners) { // small name + health tags
-    const show = inRace && Math.abs(r.z - camS) < 45 && !(brawl && r.inBrawl && r !== player);
+    const show = inRace && !r.gone && Math.abs(r.z - camS) < 45 && !(brawl && r.inBrawl && r !== player);
     const p = show ? screenPos(r.x, r.y + 2.45 - r.fall * 1.8 - (r.caught ? 0.4 : 0), r.z) : null;
     place(r.tag, p);
     if (p) { r.hpEl.style.width = Math.max(0, r.hp) + '%'; tagTop.set(r, p[1] - 17); }
@@ -261,8 +273,8 @@ class Runner {
   }
   get label() { return this === player ? 'তুমি' : (this.netName || this.def.name); }
   reset() {
-    const startX = [-0.6, -2.8, 1.6, 3.8]; // 4 runners
-    this.x = startX[this.idx]; this.z = 0; this.y = 0; this.vy = 0; this.vx = 0; this.speed = 0;
+    const startX = [-0.6, -2.8, 1.6, 3.8, -1.7, 0.5, 2.7, -3.9]; // seats 5–8 start a step behind
+    this.x = startX[this.idx]; this.z = 0; this.startZ = this.idx >= SEATS ? -1.8 : 0; this.gone = false; this.y = 0; this.vy = 0; this.vx = 0; this.speed = 0;
     this.stun = 0; this.inv = 0; this.fall = 0; this.slow = 0; this.spin = 0; this.ko = 0; this.boostT = 0; this.bumpCd = 0;
     this.hp = 100; this.stick = false; this.stones = 0; this.kickDir = 1; this.attackT = 0; this.attackType = null; this.attackSide = 1;
     this.cd = 0; this.kickNext = false; this.phase = Math.random() * 6; this.stamina = 1;
@@ -273,6 +285,11 @@ class Runner {
     this.nameEl.textContent = this.label;
     this.tag.classList.toggle('me', this === player);
   }
+}
+// race with the first n runners; the rest are hidden
+function useRunners(n) {
+  runners.length = 0;
+  ALL_RUNNERS.forEach((r, i) => { const on = i < n; if (on) runners.push(r); r.gone = false; r.m.root.visible = on; r.tag.style.display = on ? '' : 'none'; });
 }
 function makeInput() { return { dirX: 0, bias: 0, jump: false, attack: false, sprint: false, duck: false }; }
 
@@ -633,12 +650,12 @@ function hitObstacle(r, o) {
     pow(r.x, 1.2, r.z, 'কঁক কঁক! 🪶'); play('hen', r.z); damage(r, 2);
   } else if (o.walker) {
     r.stun = 0.9; r.speed = 0; r.inv = 1.8; r.z = Math.min(r.z, o.z - 0.8);
-    otherSay(o, wordOf(o), 1.3, 2.6); talk(r, 'fall', 1.2); pow(r.x, 1.6, r.z, 'ধাক্কা!'); play('kick', r.z); damage(r, 4);
+    otherSay(o, () => wordOf(o), 1.3, 2.6); talk(r, 'fall', 1.2); pow(r.x, 1.6, r.z, 'ধাক্কা!'); play('kick', r.z); damage(r, 4);
   } else {
     r.stun = big ? 1.3 : 1.1; r.speed = 0; r.inv = r.stun + 0.9;
     r.z = Math.min(r.z, o.z - o.d - 0.45);
-    if (big) { play('crash', r.z); talk(r, 'fall', 1.3); if (o.root) otherSay(o, wordOf(o), 1.2, 2.9); }
-    else { if (o.sound) play(o.sound, r.z); otherSay(o, wordOf(o), 1.2, 2); play('kick', r.z); }
+    if (big) { play('crash', r.z); talk(r, 'fall', 1.3); if (o.root) otherSay(o, () => wordOf(o), 1.2, 2.9); }
+    else { if (o.sound) play(o.sound, r.z); otherSay(o, () => wordOf(o), 1.2, 2); play('kick', r.z); }
     pow(r.x, 1.6, r.z, big ? 'ধড়াম!' : 'ধপাস!');
     damage(r, big ? 14 : 6);
   }
@@ -674,7 +691,7 @@ function updateObstacles(dt, authoritative) {
     if (o.honkT < 0 && (o.vehicle || o.sound)) {
       const animal = !o.vehicle && !o.walker || o.kind === 'hens' || o.kind === 'ducks';
       const near = humans().find(h => o.z - h.z > -6 && o.z - h.z < (animal ? 26 : 14) && Math.abs(o.x - h.x) < (animal ? 12 : 5));
-      if (near) { if (o.sound) play(o.sound, o.z); if (!animal && Math.random() < 0.3) otherSay(o, wordOf(o), 1.2, o.vehicle ? 2.9 : 2); o.honkT = animal ? rand(1.5, 3.5) : rand(2.5, 5); }
+      if (near) { if (o.sound) play(o.sound, o.z); if (!animal && Math.random() < 0.3) otherSay(o, () => wordOf(o), 1.2, o.vehicle ? 2.9 : 2); o.honkT = animal ? rand(1.5, 3.5) : rand(2.5, 5); }
       else o.honkT = 0.4;
     }
   }
@@ -900,6 +917,7 @@ function humanInput(r) {
 // ---------------- runner physics (host / single player) ----------------
 function updateRunner(r, dt) {
   r.cd -= dt; r.inv -= dt; r.attackT -= dt; r.slow -= dt; r.ko -= dt; r.boostT -= dt; r.bumpCd -= dt; r.spin = Math.max(0, r.spin - dt);
+  if (r.gone) return; // left the room mid-race
   if (r.caught) return caughtRunner(r, dt);
   const inp = r.human ? humanInput(r) : aiInput(r, dt);
   if (r.inBrawl && brawl) return brawlRunner(r, dt, inp);
@@ -1041,7 +1059,7 @@ function animRunner(r, dt) {
   track.place(m.root, r.z, r.x, r.y, yaw);
   m.stick.visible = r.stick; m.stone.visible = !r.stick && r.stones > 0;
   m.shadow.position.y = 0.03 - r.y; m.shadow.scale.setScalar(Math.max(0.5, 1.1 - r.y * 0.3));
-  m.root.visible = !(r.inv > 0.2 && r.stun <= 0 && !r.inBrawl && !r.caught && Math.floor(time * 14) % 2);
+  m.root.visible = !r.gone && !(r.inv > 0.2 && r.stun <= 0 && !r.inBrawl && !r.caught && Math.floor(time * 14) % 2);
 }
 
 // ---------------- sprint FX: dust puffs + sweat drops ----------------
@@ -1114,8 +1132,9 @@ function updateBystanders(dt) {
     n.m.armL.rotation.x = near ? Math.sin(time * 8 + n.phase) * 0.5 : 0;
     n.talkT -= dt;
     if (setting('bystanders') && near && n.talkT < 0 && bystanderT < 0 && state === 'playing' && otherCanTalk()) {
-      n.talkT = rand(16, 30); bystanderT = rand(5, 9); otherTalked(); // bystanders share the race's 5–7 lines
-      bubble(n, L(n.role === 'shop' ? 'shopkeeper' : n.female ? 'bystanderF' : 'bystander'), 1.8, 2.5);
+      n.talkT = rand(16, 30); // bystanders share the race's 8–10 lines
+      const t = L(n.role === 'shop' ? 'shopkeeper' : n.female ? 'bystanderF' : 'bystander');
+      if (t) { bystanderT = rand(5, 9); otherTalked(); bubble(n, t, 1.8, 2.5); }
     }
   }
 }
@@ -1146,8 +1165,9 @@ function resetRace() {
   clearEntities();
   world.reset();
   const dbgS = +new URLSearchParams(location.search).get('z') || 0; // debug: ?z=600 starts further along
-  runners.forEach(r => { r.reset(); r.z = dbgS; r.ai.tx = r.x; animRunner(r, 0); });
-  othersLeft = 5 + ((Math.random() * 3) | 0); othersNextT = rand(6, 10); crawlHinted = false; // other people: 5–7 lines a race
+  runners.forEach(r => { r.reset(); r.z = dbgS + r.startZ; r.ai.tx = r.x; animRunner(r, 0); });
+  othersLeft = 8 + ((Math.random() * 3) | 0); othersNextT = rand(5, 8); crawlHinted = false; // other people: 8–10 lines a race
+  resetLines(); // every line can be said again (max 3 times a race)
   nextSpawnS = dbgS + 34; nextPickupS = dbgS + 18; raceTime = 0; finishOrder = []; dogTime = 0; shake = 0; endTimer = -1;
   brawl = null; brawlCloud.g.visible = false;
   dogEvents = level.dogs.filter(z => z > dbgS + 20);
@@ -1168,15 +1188,15 @@ function resetRace() {
 
 function chooseStory(levelIdx) { // the level decides the story; prequal says who did it (random if it doesn't)
   const k = storyForLevel(levelIdx), sc = levelScript(levelIdx + 1, setting('slang')) || {};
-  const N = CHARS.length, slot = n => CHARS.findIndex(c => c.name === n);
+  const N = SEATS, slot = n => CHARS.slice(0, SEATS).findIndex(c => c.name === n); // the story is always about the four friends
   let culprit = slot(sc.culprit), victim = slot(sc.victim);
   if (culprit < 0) culprit = Math.random() < 0.25 ? 0 : 1 + ((Math.random() * (N - 1)) | 0);
   if (victim < 0 || victim === culprit) do { victim = (Math.random() * N) | 0; } while (victim === culprit);
   return { story: k, culprit, victim };
 }
 function castNames() { // the story slides use the four friends' names; "labels" are what the race shows (তুমি / online names)
-  return { names: runners.map(r => r.def.name), enNames: runners.map(r => r.def.en), labels: runners.map(r => r.label),
-    colors: runners.map(r => r.def.color) };
+  return { names: CHARS.map(c => c.name), enNames: CHARS.map(c => c.en), labels: ALL_RUNNERS.map(r => r.label),
+    colors: CHARS.map(c => c.color) };
 }
 
 function startGame(idx, pickS = chooseStory(idx)) {
@@ -1210,7 +1230,7 @@ function startCountdown() {
     if (i === 3) {
       state = 'playing'; startMusic(); refreshTouch();
       // the level's special line opens the chase
-      if (!net.active || net.host) { { const sp = levelLine(level.id, setting('slang')); if (sp) say(runners[cast.victim], sp, 1.8); else talk(runners[cast.victim], 'chase', 1.6); } talk(runners[(cast.victim + 2) % runners.length], 'chase', 1.6); }
+      if (!net.active || net.host) { { const sp = levelLine(level.id, setting('slang')); if (sp) say(runners[cast.victim % runners.length], sp, 1.8); else talk(runners[cast.victim % runners.length], 'chase', 1.6); } talk(runners[(cast.victim + 2) % runners.length], 'chase', 1.6); }
       showBanner(`${level.bn}!`, 'ধর ধর!', 1.6, false);
       setTimeout(() => cd.classList.add('hidden'), 800);
       return;
@@ -1224,10 +1244,10 @@ function checkEnd(dt) {
   if (!humans().every(h => h.caught)) return;
   if (endTimer < 0) endTimer = 9;
   endTimer -= dt;
-  if (runners.every(r => r.caught && r.z > track.finish + 7) && endTimer > 3) endTimer = 3;
+  if (runners.every(r => r.gone || r.caught && r.z > track.finish + 7) && endTimer > 3) endTimer = 3;
   if (endTimer <= 0) {
     const order = [...finishOrder, ...runners.filter(r => !r.finished).sort((a, b) => b.z - a.z)].map(r => r.idx);
-    const times = runners.map(r => (r.finished ? r2(r.finishTime) : -Math.round(track.finish - r.z)));
+    const times = runners.map(r => (r.gone ? -1e6 : r.finished ? r2(r.finishTime) : -Math.round(track.finish - r.z)));
     if (net.active) { hostNetTick(1); broadcast({ t: 'end', order, times }); }
     showEnding(order, times);
   }
@@ -1249,7 +1269,7 @@ function showResults(order, times) {
   $('resultSub').innerHTML = `${level.bn} · ${story.bn}<br>` + (rank === 1 ? 'দৌড়ে জিতলে… তবু শাস্তি থেকে রেহাই নেই 😂'
     : `তুমি <b>${ordinal(rank)}</b> হয়েছ। জিতেছে ${escapeHTML(winner.label)}।`);
   $('resultList').innerHTML = order.map((i, k) => {
-    const r = runners[i], t = times[i] >= 0 ? `${bnNum(times[i].toFixed(1))} সে` : `${bnNum(-times[i])} মি পিছনে`;
+    const r = runners[i], t = times[i] <= -1e6 ? 'চলে গেছে' : times[i] >= 0 ? `${bnNum(times[i].toFixed(1))} সে` : `${bnNum(-times[i])} মি পিছনে`;
     return `<li><span class="sw" style="background:${r.def.color}"></span><b>${ordinal(k + 1)}</b> ${escapeHTML(r.label)}<i class="hpm"><b style="width:${Math.max(0, r.hp)}%"></b></i><em>${t}</em></li>`;
   }).join('');
   const client = net.active && !net.host;
@@ -1293,6 +1313,7 @@ function quitToTitle() {
   closeStory(); hideScreens(); clearEntities();
   state = 'title'; menuOpen = false;
   $('hud').classList.add('hidden'); $('countdown').classList.add('hidden'); refreshTouch(); stopMusic();
+  useRunners(SEATS);
   runners.forEach(r => { r.human = r.idx === 0; r.remote = false; r.netName = ''; });
   player = runners[0];
   setupLevel(levelIdx); resetRace();
@@ -1320,19 +1341,16 @@ $('btnLevelsBack').onclick = () => { $('levels').classList.add('hidden'); state 
 // Everyone else renders what the host sends and sends back their controls.
 const roster = []; // [{slot, name, human, conn}]
 let snapT = 0, inputT = 0, lastSnap = null, lastSnapAt = 0;
-function myName() { return ($('mpName').value || '').trim().slice(0, 14) || 'Poltu'; }
+function myName() { return ($('mpName').value || '').trim().slice(0, 14) || menuText('#mpName@placeholder') || 'পল্টু'; }
 function rosterMsg() { return { t: 'roster', level: levelIdx, roster: roster.map(r => ({ slot: r.slot, name: r.name, human: r.human })) }; }
 // four ways to play: alone (btnPlay), a friends' room with a code, a match with strangers online, a Wi-Fi / hotspot room
 let mpMode = 'room', lanPoll = 0, autoT = 0, autoTimer = 0;
-const MP_TEXT = {
-  room: ['বন্ধুদের রুম', 'রুম বানিয়ে কোড বা লিঙ্ক পাঠাও। সর্বোচ্চ ৪ জন, ফাঁকা জায়গায় কম্পিউটার দৌড়বে।'],
-  match: ['অনলাইন ম্যাচ', 'অনলাইনে যারা খেলছে তাদের সাথে মিলিয়ে দেওয়া হবে। কেউ না থাকলে তুমি রুম খুলে অপেক্ষা করবে।'],
-  lan: ['Wi-Fi / হটস্পট রুম', 'সবাই একই Wi-Fi বা ফোনের হটস্পটে থাকো।'],
-};
+const privateRoom = () => net.mode === 'room' || net.mode === 'lan'; // friends only: 2–8 players, no computer runners
+const MP_TEXT = mode => split(((TEXTS.rooms || {})[mode]) || ({ room: 'বন্ধুদের রুম', match: 'অনলাইন ম্যাচ', lan: 'Wi-Fi / হটস্পট রুম' })[mode]);
 function showMP(mode = 'room') {
   state = 'lobby'; mpMode = mode;
-  $('mpName').value = (setting('name') && setting('name') !== 'বন্ধু') ? setting('name') : 'Poltu'; // default name, typed in the box
-  $('mpTitle').textContent = MP_TEXT[mode][0]; $('mpTag').textContent = MP_TEXT[mode][1];
+  $('mpName').value = (setting('name') && !['বন্ধু', 'Poltu'].includes(setting('name'))) ? setting('name') : (menuText('#mpName@placeholder') || 'পল্টু'); // default name, typed in the box
+  $('mpTitle').textContent = MP_TEXT(mode)[0]; $('mpTag').textContent = MP_TEXT(mode)[1];
   $('mpNameRow').classList.remove('hidden');
   $('mpStart').classList.toggle('hidden', mode !== 'room'); $('mpFind').classList.toggle('hidden', mode !== 'match');
   $('mpLan').classList.add('hidden'); $('mpLobby').classList.add('hidden'); $('mpStatus').textContent = '';
@@ -1340,10 +1358,8 @@ function showMP(mode = 'room') {
   if (mode === 'lan') lanAvailable().then(ok => {
     if (mpMode !== 'lan' || net.active) return;
     if (ok) { // served by server.js on this network: rooms work with no internet
-      $('mpTag').textContent = 'এই Wi-Fi / হটস্পটে ইন্টারনেট ছাড়াই খেলা চলবে। রুম বানাও, বা নিচের রুমে টোকা দাও।';
       $('mpLan').classList.remove('hidden'); refreshLanRooms(); clearInterval(lanPoll); lanPoll = setInterval(refreshLanRooms, 2000);
     } else { // plain web page: use a normal room — data still goes phone-to-phone over the shared Wi-Fi
-      $('mpTag').innerHTML = 'সবাই একই Wi-Fi / হটস্পটে থেকে রুম বানাও বা কোড দিয়ে যোগ দাও — খেলার ডেটা সরাসরি Wi-Fi দিয়েই যাবে।<br><small>হটস্পটে ইন্টারনেট না থাকলে: একটা ল্যাপটপে <b>node server.js</b> চালাও, সবাই ল্যাপটপের ঠিকানাটা খোলো।</small>';
       $('mpStart').classList.remove('hidden');
     }
   });
@@ -1363,6 +1379,13 @@ const mpErr = e => { $('mpStatus').textContent = '❌ ' + (e && e.message || '�
 function hostHandlers() {
   return {
     onJoin: conn => {
+      if (privateRoom()) { // friends: add a seat (lowest free number), up to 8
+        const used = new Set(roster.map(r => r.slot)), slot = [...Array(ROOM_MAX).keys()].find(i => !used.has(i));
+        if (slot === undefined || !(state === 'lobby' || state === 'results')) { sendTo(conn, { t: 'full' }); setTimeout(() => conn.close(), 300); return; }
+        roster.push({ slot, name: 'বন্ধু ' + (slot + 1), human: true, conn });
+        sendTo(conn, { t: 'welcome', slot });
+        broadcast(rosterMsg()); renderLobby(); return;
+      }
       const free = roster.find(r => !r.human);
       if (!free || !(state === 'lobby' || state === 'results')) { sendTo(conn, { t: 'full' }); setTimeout(() => conn.close(), 300); return; }
       Object.assign(free, { human: true, conn, name: 'বন্ধু ' + free.slot });
@@ -1373,6 +1396,13 @@ function hostHandlers() {
     onLeave: conn => {
       const r = roster.find(x => x.conn === conn); if (!r) return;
       const who = r.name;
+      if (privateRoom()) { // no computer takes over: the runner just leaves the race
+        roster.splice(roster.indexOf(r), 1);
+        const rn = runners[r.slot];
+        if (rn && state !== 'lobby') { Object.assign(rn, { human: false, remote: false, gone: true, z: -9999 }); rn.m.root.visible = false; }
+        if (state === 'playing') showBanner(`${who} চলে গেল`, '', 2);
+        broadcast(rosterMsg()); renderLobby(); return;
+      }
       Object.assign(r, { human: false, conn: null, name: CHARS[r.slot].name });
       const rn = runners[r.slot]; rn.human = false; rn.remote = false; rn.netName = '';
       if (state === 'playing') showBanner(`${who} চলে গেল`, 'এবার কম্পিউটার দৌড়বে', 2);
@@ -1384,7 +1414,8 @@ function hostHandlers() {
 function becomeHost() {
   $('mpStatus').textContent = '';
   roster.length = 0;
-  for (let i = 0; i < CHARS.length; i++) roster.push({ slot: i, name: i === 0 ? myName() : CHARS[i].name, human: i === 0, conn: null });
+  if (privateRoom()) roster.push({ slot: 0, name: myName(), human: true, conn: null });
+  else for (let i = 0; i < SEATS; i++) roster.push({ slot: i, name: i === 0 ? myName() : CHARS[i].name, human: i === 0, conn: null });
   showLobby();
 }
 const clientHandlers = () => ({ onData: clientOnData, onClose: () => { alert('হোস্ট রুম ছেড়ে চলে গেছে।'); quitToTitle(); } });
@@ -1436,8 +1467,8 @@ function showLobby() {
       if (state !== 'lobby' || !net.active) { clearInterval(autoTimer); autoTimer = 0; return; }
       autoT--;
       const humansIn = roster.filter(r => r.human).length;
-      $('mpAuto').textContent = humansIn >= CHARS.length ? 'সবাই এসে গেছে!' : `আরও খেলোয়াড়ের অপেক্ষা… ${bnNum(Math.max(0, autoT))} সেকেন্ডে শুরু`;
-      if (autoT <= 0 || humansIn >= CHARS.length) { clearInterval(autoTimer); autoTimer = 0; hostStart((Math.random() * LEVELS.length) | 0); }
+      $('mpAuto').textContent = humansIn >= SEATS ? 'সবাই এসে গেছে!' : `আরও খেলোয়াড়ের অপেক্ষা… ${bnNum(Math.max(0, autoT))} সেকেন্ডে শুরু`;
+      if (autoT <= 0 || humansIn >= SEATS) { clearInterval(autoTimer); autoTimer = 0; hostStart((Math.random() * LEVELS.length) | 0); }
     }, 1000);
   }
   $('mpHostCtl').classList.toggle('hidden', !net.host);
@@ -1446,12 +1477,14 @@ function showLobby() {
   if (net.host) renderLobby();
 }
 function renderLobby(list = roster) {
-  $('mpPlayers').innerHTML = `<li class="cnt">👥 <b>${bnNum(list.filter(r => r.human).length)} / ${bnNum(CHARS.length)}</b> জন খেলোয়াড় <small>(বাকিরা 🤖 কম্পিউটার)</small></li>` + list.map(r => `<li><span class="sw" style="background:${CHARS[r.slot].color}"></span>
+  const n = list.filter(r => r.human).length, priv = privateRoom();
+  if (net.host) { $('mpGo').disabled = priv && n < ROOM_MIN; $('mpAuto').textContent = priv && n < ROOM_MIN ? `আরও বন্ধুর অপেক্ষা… কমপক্ষে ${bnNum(ROOM_MIN)} জন লাগবে` : ''; }
+  $('mpPlayers').innerHTML = `<li class="cnt">👥 <b>${bnNum(n)} / ${bnNum(priv ? ROOM_MAX : SEATS)}</b> জন খেলোয়াড় <small>${priv ? `(${bnNum(ROOM_MIN)}–${bnNum(ROOM_MAX)} জন, কম্পিউটার নেই)` : '(বাকিরা 🤖 কম্পিউটার)'}</small></li>` + list.slice().sort((a, b) => a.slot - b.slot).map(r => `<li><span class="sw" style="background:${CHARS[r.slot].color}"></span>
     ${r.human ? '👤' : '🤖'} <b>${escapeHTML(r.name)}</b>${r.slot === net.mySlot ? ' <small>(তুমি)</small>' : ''}${r.slot === 0 ? ' <small>· হোস্ট</small>' : ''}</li>`).join('');
 }
 $('mpCopy').onclick = () => {
   const url = `${location.origin}${location.pathname}?room=${net.code}`;
-  const done = () => { $('mpCopy').textContent = '✓ কপি হয়েছে'; setTimeout(() => { $('mpCopy').textContent = '🔗 আমন্ত্রণ লিঙ্ক কপি করো'; }, 1500); };
+  const done = () => { $('mpCopy').textContent = '✓ কপি হয়েছে'; setTimeout(() => { $('mpCopy').innerHTML = menuText('#mpCopy') || '🔗 আমন্ত্রণ লিঙ্ক কপি করো'; }, 1500); };
   if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => prompt('আমন্ত্রণ লিঙ্ক:', url)); else prompt('আমন্ত্রণ লিঙ্ক:', url);
 };
 $('mpLevel').onchange = () => { levelIdx = +$('mpLevel').value; broadcast(rosterMsg()); };
@@ -1459,6 +1492,7 @@ $('mpGo').onclick = () => hostStart(+$('mpLevel').value);
 $('mpLeave').onclick = () => { stopLobbyTimers(); leave(); quitToTitle(); };
 
 function applyRosterToRunners(list) {
+  useRunners(list.length);
   for (const r of list) {
     const rn = runners[r.slot];
     rn.human = r.human; rn.remote = r.human && r.slot !== net.mySlot; rn.netName = r.human ? r.name : '';
@@ -1466,6 +1500,12 @@ function applyRosterToRunners(list) {
   player = runners[net.mySlot];
 }
 function hostStart(idx) {
+  if (privateRoom()) {
+    if (roster.length < ROOM_MIN) { hideScreens(); closeStory(); clearEntities(); $('hud').classList.add('hidden'); showLobby(); return; } // a friend left: wait in the lobby
+    roster.sort((a, b) => a.slot - b.slot).forEach((r, i) => { // close the gaps so the seats are 1…N
+      if (r.slot !== i) { r.slot = i; if (r.conn) sendTo(r.conn, { t: 'welcome', slot: i }); }
+    });
+  }
   const pickS = chooseStory(idx);
   applyRosterToRunners(roster);
   broadcast({ t: 'start', level: idx, pick: pickS, roster: roster.map(r => ({ slot: r.slot, name: r.name, human: r.human })) });
@@ -1520,7 +1560,7 @@ function hostNetTick(dt) {
   broadcast({
     t: 's', dt: r2(dogTime), br: brawl ? [r2(brawl.t), r2(brawl.s)] : 0,
     rs: runners.map(r => [r2(r.x), r2(r.z), r2(r.y), r2(r.speed), r2(r.vx), r2(r.stun), r2(r.attackT), ATK.indexOf(r.attackType), r.attackSide, r.kickDir,
-      Math.round(r.hp), r.stick ? 1 : 0, r.stones, (r.finished ? 1 : 0) | (r.caught ? 2 : 0) | (r.inBrawl ? 4 : 0) | (r.sprinting ? 8 : 0) | (r.tired ? 16 : 0) | (r.duck ? 32 : 0), r2(r.stamina), r2(r.spin), r2(r.ko), r.brawlScore]),
+      Math.round(r.hp), r.stick ? 1 : 0, r.stones, (r.finished ? 1 : 0) | (r.caught ? 2 : 0) | (r.inBrawl ? 4 : 0) | (r.sprinting ? 8 : 0) | (r.tired ? 16 : 0) | (r.duck ? 32 : 0) | (r.gone ? 64 : 0), r2(r.stamina), r2(r.spin), r2(r.ko), r.brawlScore]),
     ob: obstacles.filter(o => o.id && (o.vehicle || o.walker)).map(o => [o.id, r2(o.x), r2(o.z), r2(o.vx)]),
     dg: dogs.map(d => [d.id, r2(d.x), r2(d.z), r2(d.cur), r2(d.want)]),
     fo: finishOrder.map(r => r.idx),
@@ -1539,7 +1579,7 @@ function clientTick(dt) {
       r.z += speed * dt; r.z += (z + speed * age - r.z) * Math.min(1, dt * 8);
       r.y += (y - r.y) * Math.min(1, dt * 15);
       Object.assign(r, { speed, vx, stun, hp, stick: !!stick, stones, stamina: stam, spin, ko, brawlScore: bs,
-        finished: !!(fl & 1), caught: !!(fl & 2), inBrawl: !!(fl & 4), sprinting: !!(fl & 8), tired: !!(fl & 16), duck: !!(fl & 32), inv: 0 });
+        finished: !!(fl & 1), caught: !!(fl & 2), inBrawl: !!(fl & 4), sprinting: !!(fl & 8), tired: !!(fl & 16), duck: !!(fl & 32), gone: !!(fl & 64), inv: 0 });
       if (attackT > 0.15 && r.attackT <= 0) Object.assign(r, { attackT, attackType: ATK[at], attackSide: side, kickDir: kd });
       r.attackT -= dt;
     });
@@ -1604,17 +1644,18 @@ async function boot() {
       new Promise(r => setTimeout(r, 4000)),
     ]);
   } catch (e) { /* fall back to system font */ }
-  CHARS.forEach((c, i) => runners.push(new Runner(c, i)));
+  CHARS.forEach((c, i) => ALL_RUNNERS.push(new Runner(c, i)));
+  useRunners(SEATS);
   player = runners[0];
   setupLevel(0);
   resetRace();
   $('loading').classList.add('hidden'); // nothing to say once it's loaded
   $('btnPlay').disabled = false;
-  if (isTouch) $('keysHelp').classList.add('hidden'); // phones don't need keyboard keys
   const room = new URLSearchParams(location.search).get('room');
   if (room) { $('title').classList.add('hidden'); showMP(room.startsWith('L-') ? 'lan' : 'room'); $('mpStart').classList.remove('hidden'); $('mpCode').value = room.toUpperCase(); }
   requestAnimationFrame(frame);
 }
+applyMenu(); // menu and button labels from texts.json
 $('btnPlay').disabled = true;
 
 // ---------------- installable app (PWA) ----------------

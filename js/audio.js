@@ -78,13 +78,13 @@ function animal(f0s, dur, formants, vol = 0.3, delay = 0, breath = 0.15) {
   out.connect(sfxBus); o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
 }
 
-// ---------- real animal recordings (audio/animal, see CREDITS.md) ----------
-const SAMPLES = { dog: ['dog1', 'dog2', 'dog3'], cow: ['cow1', 'cow2'], goat: ['goat1', 'goat2', 'goat3', 'goat4'] };
+// ---------- real recordings: animals and the cycle bell (audio/other, see CREDITS.md) ----------
+const SAMPLES = { bell: ['bell1', 'bell2'], dog: ['dog1', 'dog2', 'dog3'], cow: ['cow1', 'cow2'], goat: ['goat1', 'goat2', 'goat3', 'goat4'] };
 const sampleBufs = {};
 function loadSamples() {
   for (const [k, files] of Object.entries(SAMPLES)) sampleBufs[k] = [];
   for (const [k, files] of Object.entries(SAMPLES)) for (const f of files)
-    fetch(`audio/animal/${f}.mp3`).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => sampleBufs[k].push(buf)).catch(() => {});
+    fetch(`audio/other/${f}.mp3`).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => sampleBufs[k].push(buf)).catch(() => {});
 }
 let busyUntil = {}, lastPick = {};
 function sample(k, rate = 1, vol = 0.8, far = false) { // true if a recording was played
@@ -126,7 +126,7 @@ export const sfx = {
     }
   },
   horn() { tone('square', 420, 420, 0.18, 0.1); tone('square', 350, 350, 0.25, 0.1, 0.22); },
-  bell() { tone('sine', 2100, 2000, 0.25, 0.15); tone('sine', 2100, 2000, 0.25, 0.15, 0.14); },
+  bell() { if (sample('bell', 0.97 + Math.random() * 0.06, 0.55)) return; tone('sine', 2100, 2000, 0.25, 0.15); tone('sine', 2100, 2000, 0.25, 0.15, 0.14); }, // ক্রিং ক্রিং
   moo() { if (sample('cow', 0.97 + Math.random() * 0.06, 0.95)) return;
     // "hammmbaaa": closed hum opening into a long falling 'aa'
     animal([105, 118, 132, 120, 96], 1.3, [[300, 4, 1.2], [700, 6, 0.9], [1150, 8, 0.4]], 0.4, 0, 0.08);

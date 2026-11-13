@@ -4,6 +4,7 @@
 // World calls build(kind, ctx) from its chunk builder; ctx carries the helpers so this file doesn't import world.js.
 import * as THREE from 'three';
 import { mat, mesh, boxG, makeBuddy, makeBoat } from './models.js';
+import { sign } from './texts.js';
 
 const glow = c => new THREE.MeshBasicMaterial({ color: c });
 const V = () => new THREE.Vector3();
@@ -22,13 +23,8 @@ export const SIGHT_KIND = {
 };
 // how much roadside room a centre sight needs (props keep out of ±r metres on its side)
 export const SIGHT_ROOM = { victoria: 50, planetarium: 40, ecopark: 46, biswabangla: 0, mohunbagan: 46, cricket: 40, kalighat: 36, ghat: 22, festival: 34, rail: 1e9 };
-export const SIGHT_NAME = {
-  victoria: ['ভিক্টোরিয়া মেমোরিয়াল', 'কলকাতা • ১৯২১'], planetarium: ['বিড়লা তারামণ্ডল', 'আকাশের তারা দেখুন'],
-  ecopark: ['ইকো পার্ক', 'নিউ টাউন'], biswabangla: ['বিশ্ব বাংলা গেট', 'নিউ টাউন'], mohunbagan: ['মোহনবাগান মাঠ', 'জয় মোহনবাগান!'],
-  cricket: ['ক্রিকেট মাঠ', 'পাড়ার টুর্নামেন্ট'], kalighat: ['কালীঘাট মন্দির', 'জয় মা কালী'], ghat: ['গঙ্গার ঘাট', 'বাবুঘাট'],
-  festival: ['সর্বজনীন দুর্গোৎসব', 'আলোর রোশনাই'], howrah: ['হাওড়া ব্রিজ', 'রবীন্দ্র সেতু'], setu: ['বিদ্যাসাগর সেতু', 'দ্বিতীয় হুগলি সেতু'],
-  rail: ['রেললাইন', 'সাবধানে পার হোন'], tram: ['ট্রাম লাইন', 'কলকাতার ট্রাম'],
-};
+// the board text for each sight comes from texts.json → landmarks ("নাম | নিচের লেখা")
+export const SIGHT_NAME = new Proxy({}, { get: (_, k) => sign('landmarks', k) });
 
 // ctx: { g, track, H(s), side, sc (centre s), a, b (chunk range), seg, anchor(s, lat, y), sign(textArr, s, lat, y),
 //        npc(s, lat, y, role), anim(fn(t, dt)), sound(name, s), mats, plane, evening }

@@ -330,9 +330,7 @@ function renderPanel() {
     body.innerHTML = `
       <div class="setRow"><span><b>Bengali slang (গালাগালি)</b><small>For grown-ups only 🔞</small></span>
         <div class="segs">${[['Off', 0], ['On', 2]].map(([l, v]) => `<button class="seg${(+g.slang ? 2 : 0) === v ? ' on' : ''}" data-slang="${v}">${l}</button>`).join('')}</div></div>
-      <p class="hint">${[
-        'Off — clean, fine for the whole family.',
-        'On — মজার গালি: "কানা ডোচা", "বোকা পাঁঠা", "কালা ডোচা", "আলবাল বকিস না", "তুই ছিঁড়ে নিবি?", "শুয়োরের নাতি"…'][+g.slang ? 1 : 0]}</p>
+      ${+g.slang ? '' : '<p class="hint">Off — clean, fine for the whole family.</p>'}
       <div class="setRow"><span><b>Bystander comments</b><small>People on the road shout at you</small></span>
         <label class="switch"><input type="checkbox" id="gBy" ${g.bystanders ? 'checked' : ''}><i></i></label></div>
       <div class="setRow"><span><b>Bengali voice (বাংলা আওয়াজ)</b><small>Comments &amp; slang are spoken aloud</small></span>

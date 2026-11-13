@@ -22,12 +22,12 @@ A silly 3D browser race. Four hostel friends (পল্টু — that is you �
   - **Road types:** city, wide and narrow roads, red-soil village roads, a road under construction (barricades, cones, a JCB), highway, flyover, underpass, the big bridges and little canal bridges.
 - **Time and weather per level:** day (levels 1, 2, 4, 10), afternoon (3, 5, 7), evening (6, 8, 9, with the street lamps lit); sunny (1, 2, 3, 6), cloudy (5, 8, 10), rainy (4, 7, 9, with rain, thunder and lightning).
 - **Curvy roads and little bridges:** long straight stretches bend gently, and each level has 2–3 small bridges (পুল) where the road humps over a canal (খাল) flowing out on both sides.
-- **Bengali shops:** every roadside sign comes from `shops.json` → `shopNames` (add your own; `নাম | নিচের লেখা` adds a second line). Ten food shops have their own 3D designs, matched by name:
+- **Bengali shops:** every roadside sign comes from `texts.json` → `shopNames` (change, add or remove names; `নাম | নিচের লেখা` adds a second line). Ten food shops have their own 3D designs, matched by name:
   - restaurants in the city: দাদা বৌদি বিরিয়ানি, আরসালান বিরিয়ানি, ডোমিনোজ পিৎজা, নন্দিনী দির হোটেল and ভূতের রাজা দিলো বর
   - stalls in markets and on city pavements: রাজু দার পরোটা, চপ শিল্প, ঝালমুড়ি মুড়ি, মুন্সি টি and কাঠি রোল
 - **Crawl under things:** some roads are blocked by two men carrying a bamboo ladder across, a wooden beam on sawhorses, or a big fallen tree. They are too high to jump, so crawl under them (slower, no sprint). Walk into one standing up and you bang your head.
 - **Equal speeds.** Every runner, AI included, has the same top speed and the same sprint: 4 seconds full, 15 seconds to refill.
-- **Four ways to play:** **একা খেলো** (single player), **বন্ধুদের রুম** (a friends' room online with a code or link), **অনলাইন ম্যাচ** (matched with strangers online), and **Wi-Fi / হটস্পট রুম** (everyone on the same Wi-Fi or phone hotspot, even with no internet). Up to 4 players; computer runners fill the empty seats.
+- **Four ways to play:** **একা খেলো** (single player), **বন্ধুদের রুম** (a friends' room online with a code or link), **অনলাইন ম্যাচ** (matched with strangers online), and **Wi-Fi / হটস্পট রুম** (everyone on the same Wi-Fi or phone hotspot, even with no internet). Friends' rooms and Wi-Fi rooms take 2–8 real players and no computer runners (a friend who leaves just drops out of the race); an online match has 4 seats, with computer runners filling the empty ones.
 - **Installable app (PWA):** on Android (Chrome, Edge, Samsung Internet) tap **📲 ফোনে ইনস্টল করো** on the title screen, or the browser's *Install app*. On iPhone: Safari → Share → *Add to Home Screen*. It gets its own icon, opens fullscreen, and after the first visit it works offline (voices included). Installing needs HTTPS (GitHub Pages is fine) or `localhost`; a plain `http://192.168…` address can be played but not installed.
 - **Always in Bengali:** the page tells Chrome, Edge, Safari and Firefox (desktop and mobile) never to auto-translate it.
 
@@ -44,13 +44,13 @@ Built with [three.js](https://threejs.org/) (a copy is in `vendor/`, so the game
   Lines typed in English letters (Banglish) are shown as typed and spoken in Bengali. Their Bengali spellings are in `audio/voice/spoken.json`, so you can fix any word that is pronounced wrong.
 
   Each speaker also gets a slightly different pitch. Settings → খেলা → **Bengali voice** turns them off.
-- **Animals:** the dog, cow and goat sounds are real recordings in `audio/animal/` (credits and licences in [`audio/animal/CREDITS.md`](audio/animal/CREDITS.md)).
+- **Real recordings:** the dog, cow and goat sounds and the cycle bell (ক্রিং ক্রিং) are real recordings in `audio/other/` (credits and licences in [`audio/other/CREDITS.md`](audio/other/CREDITS.md)).
 - **All text and voices:** every speech bubble, every voice clip and the prequel/ending story come from two files with the same keys:
   - [`noslangs.comment.json`](noslangs.comment.json): used when গালাগালি is Off.
   - [`slangs.comment.json`](slangs.comment.json): used when গালাগালি is On. An empty list in one file falls back to the same list in the other.
 
-  The keys are `shopkeeperShout`, `outsiderMale`, `outsiderFemale`, `friendsFight`, `friendChase`, `friendFall` (your own fall cries), `superSir`, `driver`, `walker`, `levelSpeceficFriends` and `levelSpeceficOutsider` (both per level, `l1`…`l10`; the first friends' line is shouted at the start of the race), and `prequal`. `prequal` holds the four friends' names and, per level, the title, `culprit`, `victim`, opening scene, story lines (`"নাম: কথা"` puts the line in that friend's speech bubble; a line with "দুম দাম" shows the fight) and the `end` punishment lines. The `_help` notes at the top of each file explain every field in Bengali. Edit and reload.
-- **Shop signs:** [`shops.json`](shops.json) → `shopNames`.
+  The keys are `shopkeeperShout`, `outsiderMale`, `outsiderFemale`, `friendsFight`, `friendChase`, `friendFall` (your own fall cries), `superSir`, `driver`, `walker`, `levelSpeceficFriends` and `levelSpeceficOutsider` (both per level, `l1`…`l10`; the first friends' line is shouted at the start of the race), and `prequal`. `prequal` holds the four friends' names and, per level, the title, `culprit`, `victim`, opening scene, story lines (`"নাম: কথা"` puts the line in that friend's speech bubble; a line with "দুম দাম" shows the fight) and the `end` punishment lines. The `_help` notes at the top of each file explain every field in Bengali. Edit and reload. To keep it from getting repetitive, a line is said at most 3 times a race and never twice within 15 seconds; the level-specific lines are heard only twice near the start (the first one as the race begins) and once around the middle.
+- **Signs and menus:** [`texts.json`](texts.json) holds every other Bengali text: `shopNames`, `hoardings`, `marketBanners`, `roadSigns` (college gate, finish, bridge…), `landmarks` (ভিক্টোরিয়া, হাওড়া ব্রিজ…) and `menu` (every button and menu label, keyed by its CSS selector). Board lines use `নাম | নিচের লেখা`. Edit and reload.
 
 If you add or change lines in either comment file, regenerate the clips. This needs internet, `ffmpeg` and [edge-tts](https://pypi.org/project/edge-tts/), and only new lines are rendered:
 
@@ -63,7 +63,7 @@ The clips are laid out like the JSON files, so you can find (and listen to) the 
 
 ```
 audio/
-  animal/                                   dog, cow and goat recordings
+  other/                                    dog, cow, goat and cycle-bell recordings
   voice/
     slang/                                  ← slangs.comment.json
       shopkeeperShout/01.mp3 02.mp3 …       (01 = the first line in the list)

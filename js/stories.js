@@ -6,14 +6,14 @@ import { VOICE_RATE as VR, SUPER_RATE, DOG_RATE } from './voicekey.js';
 //   noslangs.comment.json — used when Settings → গালাগালি is Off
 //   slangs.comment.json   — used when it is On
 // Both have the same keys (shopkeeperShout, outsiderMale, outsiderFemale, friendsFight, friendChase, friendFall, superSir,
-// driver, walker, levelSpeceficFriends, levelSpeceficOutsider, prequal). Shop signboard names are in shops.json.
+// driver, walker, levelSpeceficFriends, levelSpeceficOutsider, prequal). Shop names, signs and menu labels are in texts.json (js/texts.js).
 async function load(file) {
   try { const r = await fetch(new URL('../' + file, import.meta.url), { cache: 'no-cache' }); return await r.json(); }
   catch (e) { console.error(file + ' could not be loaded (check it for a missing comma or quote):', e); return {}; }
 }
-const [NS, SL, SH] = await Promise.all([load('noslangs.comment.json'), load('slangs.comment.json'), load('shops.json')]);
+const [NS, SL] = await Promise.all([load('noslangs.comment.json'), load('slangs.comment.json')]);
 export const COMMENTS = { noSlangs: NS, slangs: SL };
-export const SHOP_NAMES = Array.isArray(SH.shopNames) ? SH.shopNames : [];
+export { SHOP_NAMES } from './texts.js';
 const fileFor = slang => (slangLevel(slang) > 0 ? [SL, NS] : [NS, SL]); // [the one in use, the fallback]
 // prequel / ending script for a level (from the file in use, else the other one)
 export const levelScript = (n, slang) => {
@@ -22,20 +22,37 @@ export const levelScript = (n, slang) => {
 };
 const friendsOf = F => ((F.prequal || {}).friends);
 export const FRIENDS = [friendsOf(NS), friendsOf(SL)].find(f => Array.isArray(f) && f.length === 4)?.map(String) || ['পল্টু', 'গোপাল', 'কেলো', 'লম্বু'];
-// the level's first special friends' line (shouted when the race starts)
-export const levelLine = (n, slang) => { for (const F of fileFor(slang)) { const a = arr((F.levelSpeceficFriends || {})['l' + n]); if (a.length) return a[0]; } return ''; };
 const arr = v => (Array.isArray(v) ? v.filter(x => typeof x === 'string' && x.trim()) : []);
 const pickA = a => a[(Math.random() * a.length) | 0];
-const lastUsed = new Map(); // text → when it was last picked
+// Not too repetitive: in one race a line is said at most MAX_USES times, and never again within REPEAT_GAP.
+// When every line of a list is used up or too recent, nobody says anything.
+const MAX_USES = 3, REPEAT_GAP = 15000;
+const used = new Map(); // text → { n: times said this race, t: when }
 export const pickLine = list => {
   const a = arr(list); if (!a.length) return '';
-  const now = performance.now(), age = t => now - (lastUsed.get(t) ?? -1e9);
-  const fresh = a.filter(t => age(t) > 4000);                           // never the same line within 4 s
-  const pool = fresh.length ? fresh : a;
-  const stale = pool.filter(t => age(t) > 15000);                        // and prefer lines not heard for a while
-  const t = pickA(stale.length ? stale : pool);
-  lastUsed.set(t, now); return t;
+  const now = performance.now(), u = t => used.get(t) || { n: 0, t: -1e9 };
+  const ok = a.filter(t => u(t).n < MAX_USES && now - u(t).t >= REPEAT_GAP);
+  if (!ok.length) return '';
+  const least = Math.min(...ok.map(t => u(t).n));                        // lines heard the least go first
+  const t = pickA(ok.filter(x => u(x).n === least));
+  used.set(t, { n: u(t).n + 1, t: now }); return t;
 };
+// Level-specific lines (levelSpeceficFriends / levelSpeceficOutsider): twice in the first part of the race
+// (the first quarter) and once around the middle (40–60%), nowhere else.
+const LEVEL_BUDGET = { begin: 2, mid: 1 };
+let levelLeft = {};
+const section = p => (p < 0.25 ? 'begin' : p >= 0.4 && p <= 0.6 ? 'mid' : '');
+export function resetLines() { used.clear(); levelLeft = { friends: { ...LEVEL_BUDGET }, outsider: { ...LEVEL_BUDGET } }; }
+resetLines();
+function levelPick(who, list, prog) {
+  const sec = section(prog), left = levelLeft[who];
+  if (!list.length || !sec || !left || left[sec] <= 0) return '';
+  const t = pickLine(list); if (t) left[sec]--;
+  return t;
+}
+const levelList = (key, slang, n) => { for (const F of fileFor(slang)) { const a = arr((F[key] || {})['l' + n]); if (a.length) return a; } return []; };
+// the level's friends' line shouted as the race starts (one of the two at the beginning)
+export const levelLine = (n, slang) => levelPick('friends', levelList('levelSpeceficFriends', slang, n), 0);
 
 // slang: 0 = off, anything else = on (old saves stored true/false or 1/2)
 export const slangLevel = v => (v === true ? 2 : v === false || v == null ? 0 : +v || 0);
@@ -43,14 +60,15 @@ export const slangLevel = v => (v === true ? 2 : v === false || v == null ? 0 : 
 const KEY = { chase: 'friendChase', brawl: 'friendsFight', fall: 'friendFall', bystander: 'outsiderMale', bystanderF: 'outsiderFemale',
   super: 'superSir', driver: 'driver', shopkeeper: 'shopkeeperShout', walker: 'walker' };
 // cat: chase | brawl | fall | bystander (male) | bystanderF (female) | super | driver | shopkeeper | walker
-export function line(cat, slang, story, levelNo) {
+// prog: how far along the race is (0 = start, 1 = finish), for the level-specific lines
+export function line(cat, slang, story, levelNo, prog = 0) {
   const k = KEY[cat]; if (!k) return '';
   const files = fileFor(slang), lk = 'l' + levelNo;
   const list = key => { for (const F of files) { const a = arr(F[key]); if (a.length) return a; } return []; }; // the file in use; if its list is empty, the other file's
   const lvl = key => { for (const F of files) { const a = arr((F[key] || {})[lk]); if (a.length) return a; } return []; };
   const lf = lvl('levelSpeceficFriends'), lo = lvl('levelSpeceficOutsider');
-  if ((cat === 'chase' && Math.random() < 0.3) || (cat === 'brawl' && Math.random() < 0.2)) if (lf.length) return pickLine(lf);
-  if ((cat === 'bystander' || cat === 'walker') && lo.length && Math.random() < 0.3) return pickLine(lo);
+  if ((cat === 'chase' || cat === 'brawl') && Math.random() < 0.5) { const t = levelPick('friends', lf, prog); if (t) return t; }
+  if ((cat === 'bystander' || cat === 'bystanderF' || cat === 'walker') && Math.random() < 0.5) { const t = levelPick('outsider', lo, prog); if (t) return t; }
   return pickLine(list(k));
 }
 
