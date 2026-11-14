@@ -146,9 +146,9 @@
   },
   {
    "f": "slang/friendsFight/03.mp3",
-   "t": "গান্ডু!",
+   "t": "গান্ডু",
    "v": "friend",
-   "id": "37d24416"
+   "id": "f31e26a2"
   },
   {
    "f": "slang/friendsFight/04.mp3",
@@ -362,27 +362,27 @@
   },
   {
    "f": "slang/friendChase/22.mp3",
-   "t": "চোদনা!",
+   "t": "চোদনা",
    "v": "friend",
-   "id": "82bf45d2"
+   "id": "2ff5c406"
   },
   {
    "f": "slang/friendChase/23.mp3",
-   "t": "চুতমারানি!",
+   "t": "চুতমারানি",
    "v": "friend",
-   "id": "96349fc4"
+   "id": "57d9836a"
   },
   {
    "f": "slang/friendChase/24.mp3",
-   "t": "ভেড়াচ্চোদা!",
+   "t": "ভেড়াচ্চোদা",
    "v": "friend",
-   "id": "3b5fd612"
+   "id": "59dad28e"
   },
   {
    "f": "slang/friendChase/25.mp3",
-   "t": "লেওড়া!",
+   "t": "লেওরা",
    "v": "friend",
-   "id": "7dca378a"
+   "id": "6940aa1e"
   },
   {
    "f": "slang/friendChase/26.mp3",
@@ -409,6 +409,12 @@
    "id": "72c12d40"
   },
   {
+   "f": "slang/friendFall/02.mp3",
+   "t": "উফ্‌!",
+   "v": "friend",
+   "id": "98c29112"
+  },
+  {
    "f": "slang/superSir/01.mp3",
    "t": "গাঁড়ে ডান্ডা ভরে দেব এবার!",
    "v": "super",
@@ -425,6 +431,30 @@
    "t": "এত দৌড়ে কী বাল ছিঁড়ে নিলি?",
    "v": "super",
    "id": "686319a5"
+  },
+  {
+   "f": "slang/superSir/04.mp3",
+   "t": "তোদের বিচিতে দম নেই!",
+   "v": "super",
+   "id": "4e215a11"
+  },
+  {
+   "f": "slang/superSir/05.mp3",
+   "t": "পাগলা কুকুরে গাঁড় মেরে দিয়েছে নাকি?",
+   "v": "super",
+   "id": "b59adde1"
+  },
+  {
+   "f": "slang/superSir/06.mp3",
+   "t": "তোরা একটা আস্ত পাগলাচোদার দল!",
+   "v": "super",
+   "id": "636cae4d"
+  },
+  {
+   "f": "slang/superSir/07.mp3",
+   "t": "শালা, তোদের গাঁড়পেঁয়াজি বেড়েছে!",
+   "v": "super",
+   "id": "bbc6a367"
   },
   {
    "f": "slang/driver/01.mp3",
@@ -451,22 +481,34 @@
    "id": "6e7c9f34"
   },
   {
-   "f": "slang/walker/01.mp3",
-   "t": "চোখ কি পকেটে রেখেছিস, শালা?",
-   "v": "bystander",
-   "id": "a47aae1c"
+   "f": "slang/driver/05.mp3",
+   "t": "এটা কী ধরনের বোকাচোদামো?",
+   "v": "driver",
+   "id": "8b88c452"
   },
   {
-   "f": "slang/walker/02.mp3",
+   "f": "slang/driver/06.mp3",
+   "t": "মাথায় কি অ্যানাকোন্ডার অণ্ডকোষ আছে নাকি?",
+   "v": "driver",
+   "id": "9a53b9ba"
+  },
+  {
+   "f": "slang/walker/01.mp3",
    "t": "ধাক্কা মারলি কেন রে হারামি?",
    "v": "bystander",
    "id": "e96484dc"
   },
   {
-   "f": "slang/walker/03.mp3",
+   "f": "slang/walker/02.mp3",
    "t": "রাস্তাটা তোর বাপের নাকি?",
    "v": "bystander",
    "id": "7ffbe152"
+  },
+  {
+   "f": "slang/walker/03.mp3",
+   "t": "কে রে তুই, চুদির ভাই?",
+   "v": "bystander",
+   "id": "8edbf3b0"
   },
   {
    "f": "slang/levelSpeceficFriends/level1/01.mp3",
@@ -488,9 +530,9 @@
   },
   {
    "f": "slang/levelSpeceficFriends/level4/01.mp3",
-   "t": "বাল বোকাচোদা, তোর ডিম ছিঁড়ে নেব আজ! আজ তোর ডিম দিয়ে অমলেট বানাব, গুদির ভাই!",
+   "t": "বাল বোকাচোদা, তোর ডিম ছিঁড়ে নেব আজ! তোর ডিম দিয়ে অমলেট বানাব, গুদির ভাই!",
    "v": "friend",
-   "id": "ddecf32a"
+   "id": "33537a72"
   },
   {
    "f": "slang/levelSpeceficFriends/level5/01.mp3",
@@ -530,210 +572,60 @@
   },
   {
    "f": "slang/levelSpeceficOutsider/level1/01.mp3",
-   "t": "কলেজের ছেলেরা আবার শুরু করেছে!",
+   "t": "হোস্টেলের ছেলেরা আবার শুরু করেছে!",
    "v": "bystander",
-   "id": "94d04b3a"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level1/02.mp3",
-   "t": "পড়াশোনা নেই নাকি?",
-   "v": "bystander",
-   "id": "49d4b25a"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level1/03.mp3",
-   "t": "পাড়ায় এসব চলবে না!",
-   "v": "bystander",
-   "id": "c2e4ec2e"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level1/04.mp3",
-   "t": "চা খেয়ে যাও ভাই!",
-   "v": "bystander",
-   "id": "1936d580"
+   "id": "2eca4b2c"
   },
   {
    "f": "slang/levelSpeceficOutsider/level2/01.mp3",
-   "t": "বাজারে দৌড়চ্ছে কেন?",
+   "t": "এদের দেখলেই কেমন চোদনা চোদনা লাগে!",
    "v": "bystander",
-   "id": "a34d2db4"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level2/02.mp3",
-   "t": "আমার থলে ফেলে দিল!",
-   "v": "bystander",
-   "id": "91cc4f3a"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level2/03.mp3",
-   "t": "পকেটমার নাকি?",
-   "v": "bystander",
-   "id": "84f48d2c"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level2/04.mp3",
-   "t": "টাটকা মাছ! ইলিশ নেবে?",
-   "v": "bystander",
-   "id": "8cab5700"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level2/05.mp3",
-   "t": "আলু পেঁয়াজ সস্তা!",
-   "v": "bystander",
-   "id": "3b0da394"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level2/06.mp3",
-   "t": "দাম জিজ্ঞেস করে যাও!",
-   "v": "bystander",
-   "id": "9dfa9230"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level2/07.mp3",
-   "t": "এই! দোকান উল্টে দিবি নাকি?",
-   "v": "bystander",
-   "id": "c8aa04d8"
+   "id": "ca999f18"
   },
   {
    "f": "slang/levelSpeceficOutsider/level3/01.mp3",
-   "t": "শহরের ছেলেরা এসেছে!",
+   "t": "বাহ্‌, দৌড়া… বাল বাহাদুর থাপা, শুয়োরের নাতি!",
    "v": "bystander",
-   "id": "6e4800b0"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level3/02.mp3",
-   "t": "গরু সামলে বাবা!",
-   "v": "bystander",
-   "id": "b0b2bfe0"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level3/03.mp3",
-   "t": "মুড়ি খেয়ে যাও!",
-   "v": "bystander",
-   "id": "24e2f576"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level3/04.mp3",
-   "t": "টাটকা খেজুর গুড়!",
-   "v": "bystander",
-   "id": "1d28f688"
+   "id": "66d61f60"
   },
   {
    "f": "slang/levelSpeceficOutsider/level4/01.mp3",
-   "t": "নদীতে পড়বি রে!",
+   "t": "এদের কি আবার বিচি টাকে উঠে গেল নাকি?",
    "v": "bystander",
-   "id": "33293748"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level4/02.mp3",
-   "t": "নৌকায় উঠবি?",
-   "v": "bystander",
-   "id": "88d6087a"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level4/03.mp3",
-   "t": "জাল ছিঁড়বি না!",
-   "v": "bystander",
-   "id": "3adec348"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level4/04.mp3",
-   "t": "টাটকা মাছ! নদীর মাছ!",
-   "v": "bystander",
-   "id": "bb0c6a8a"
+   "id": "0677195c"
   },
   {
    "f": "slang/levelSpeceficOutsider/level5/01.mp3",
-   "t": "এ যে সিনেমার শুটিং!",
+   "t": "হোস্টেলের ছেলেরা আবার শুরু করেছে!",
    "v": "bystander",
-   "id": "e467e674"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level5/02.mp3",
-   "t": "টিভিতে দেখাবে নাকি?",
-   "v": "bystander",
-   "id": "ee70da90"
+   "id": "2eca4b2c"
   },
   {
    "f": "slang/levelSpeceficOutsider/level6/01.mp3",
-   "t": "সেতুর ওপর দৌড়িও না!",
+   "t": "বাহ্‌, দৌড়া… বাল বাহাদুর থাপা, শুয়োরের নাতি!",
    "v": "bystander",
-   "id": "8f9072ea"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level6/02.mp3",
-   "t": "নিচে গঙ্গা, সাবধান!",
-   "v": "bystander",
-   "id": "405eb568"
+   "id": "66d61f60"
   },
   {
    "f": "slang/levelSpeceficOutsider/level7/01.mp3",
-   "t": "গলিতে এত হইচই কেন?",
+   "t": "কেমন আবাল চোন্দির মতো দৌড়চ্ছে!",
    "v": "bystander",
-   "id": "97e0a870"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level7/02.mp3",
-   "t": "জানলা দিয়ে সব দেখছি!",
-   "v": "bystander",
-   "id": "0248aa08"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level7/03.mp3",
-   "t": "বাড়ির সামনে দৌড়োস না!",
-   "v": "bystander",
-   "id": "9949c4dc"
+   "id": "cdb6dfe8"
   },
   {
    "f": "slang/levelSpeceficOutsider/level8/01.mp3",
-   "t": "ধান মাড়াস না!",
+   "t": "রাস্তা নয়, যেন মনে হচ্ছে নিজের বাপের বাড়া পেয়েছে!",
    "v": "bystander",
-   "id": "c5398016"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level8/02.mp3",
-   "t": "আমার ক্ষেত নষ্ট করল!",
-   "v": "bystander",
-   "id": "0744665a"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level8/03.mp3",
-   "t": "চাষের সময় এসব কী?",
-   "v": "bystander",
-   "id": "c449a7c0"
+   "id": "b4fc3046"
   },
   {
    "f": "slang/levelSpeceficOutsider/level9/01.mp3",
-   "t": "পাহাড়ি রাস্তা, আস্তে!",
+   "t": "দেখ বাবা, ওই গান্ডুর দলটা আবার বেরিয়েছে!",
    "v": "bystander",
-   "id": "f547e512"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level9/02.mp3",
-   "t": "মোমো খেয়ে যাও!",
-   "v": "bystander",
-   "id": "aed36420"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level9/03.mp3",
-   "t": "গরম মোমো!",
-   "v": "bystander",
-   "id": "6e6da8a0"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level9/04.mp3",
-   "t": "দার্জিলিং চা!",
-   "v": "bystander",
-   "id": "01ae7324"
+   "id": "e3186438"
   },
   {
    "f": "slang/levelSpeceficOutsider/level10/01.mp3",
-   "t": "সুপার স্যার অপেক্ষা করছেন!",
-   "v": "bystander",
-   "id": "fa0ef080"
-  },
-  {
-   "f": "slang/levelSpeceficOutsider/level10/02.mp3",
    "t": "আজ তোদের কপালে দুঃখ আছে!",
    "v": "bystander",
    "id": "89bb1bae"

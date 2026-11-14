@@ -8,7 +8,7 @@ import * as M from './models.js';
 import { initAudio, sfx, say as tts, setVoice, pauseAudio, resumeAudio, setMuted, isMuted, startMusic as startMusicA, stopMusic as stopMusicA, setMusicFast, startRain, stopRain } from './audio.js';
 import { Sky } from './sky.js';
 import { playSlides, closeStory } from './intro.js';
-import { STORIES, line, introSlides, endingSlides, storyForLevel, FRIENDS, levelScript, levelLine, resetLines } from './stories.js';
+import { STORIES, line, introSlides, endingSlides, storyForLevel, FRIENDS, levelScript, levelLine, resetLines, isLevelLine } from './stories.js';
 import { VOICE_RATE, SUPER_RATE } from './voicekey.js';
 import { applyMenu, menuText, TEXTS, split } from './texts.js';
 import { initInput, held, pollGamepad, openControls, closeControls, isPanelOpen, touchEnabled, bindingLabel, isTouchDevice as isTouch, setting, setSetting, steerAxis, startGyro, calibrateGyro, recenterGyro } from './input.js';
@@ -154,24 +154,27 @@ function feedAdd(who, text) { // a small running chat log, so every line can be 
 function voiceOf(obj) {
   if (obj.isRunner) return { voice: 'friend', pitch: VOICE_RATE[obj.idx % VOICE_RATE.length], pri: obj === player ? 1 : 0 };
   if (obj === superObj) return { voice: 'super', pitch: SUPER_RATE, pri: 1 };
-  if (world && world.npcs.has(obj)) return { voice: obj.female ? 'female' : obj.role === 'shop' ? 'shopkeeper' : 'bystander', pitch: obj.vPitch ??= rand(0.95, 1.05) };
-  if (obj.kind === 'thela') return { voice: 'shopkeeper', pitch: 0.97 };
-  if (obj.kind === 'walker') return { voice: 'bystander', pitch: 1.02 };
-  if (isVehicle(obj)) return { voice: 'driver', pitch: obj.vPitch ??= rand(0.95, 1.05) };
+  // people on the road (pri: their lines are never dropped from the voice queue, so friends can't drown them out)
+  if (world && world.npcs.has(obj)) return { voice: obj.female ? 'female' : obj.role === 'shop' ? 'shopkeeper' : 'bystander', pitch: obj.vPitch ??= rand(0.95, 1.05), pri: 1 };
+  if (obj.kind === 'thela') return { voice: 'shopkeeper', pitch: 0.97, pri: 1 };
+  if (obj.kind === 'walker') return { voice: 'bystander', pitch: 1.02, pri: 1 };
+  if (isVehicle(obj)) return { voice: 'driver', pitch: obj.vPitch ??= rand(0.95, 1.05), pri: 1 };
   return null;
 }
 function voice(obj, text) {
   if (!setting('voice') || !(state === 'playing' || state === 'countdown')) return;
-  const v = voiceOf(obj); if (!v) return;
+  let v = voiceOf(obj); if (!v) return;
+  if (isLevelLine(text)) v = { ...v, pri: 1 };
   if (obj !== player && Math.abs((obj.z || 0) - player.z) > 18) return; // only what you can hear
   tts(text, v);
 }
 const saidAt = new Map(); // text → time it was last said
+let lastLineAt = 0;       // when anyone last said anything (the chatter keeps silences under 3 s)
 function bubble(obj, text, life = 2.2, yOff = 2.8, silent = false) {
   if (!obj || !text || menuOpen) return; // nothing new is said while paused
   const now = performance.now();
   if (now - (saidAt.get(text) || -1e9) < 4000) return; // the same line again within 4 s: stay quiet
-  saidAt.set(text, now);
+  saidAt.set(text, now); lastLineAt = now;
   if (!silent) voice(obj, text);
   const who = speakerOf(obj);
   if (brawl && obj.isRunner && obj.inBrawl) { if (bubbles.length >= 3 && obj !== player) return; yOff = 4.4; } // float above the dust cloud
@@ -190,7 +193,34 @@ function talk(obj, cat, life = 1.5, yOff) { // a line from a category; clients p
 }
 let othersLeft = 3, othersNextT = 10, crawlHinted = false;
 function otherCanTalk() { return othersLeft > 0 && raceTime >= othersNextT; }
-function otherTalked() { othersLeft--; othersNextT = raceTime + rand(8, 14); }
+function otherTalked() { othersLeft--; othersNextT = raceTime + rand(3, 6); }
+// Chatter: never more than ~3 s without a line. Each machine picks someone near its own player — a friend, a bystander,
+// a shopkeeper, a driver or a walker — and they shout (only on this screen, so nothing extra goes over the network).
+const SILENCE_MAX = 3000;
+function updateChatter() {
+  if (state !== 'playing' || menuOpen || !player) return;
+  const quiet = performance.now() - lastLineAt >= SILENCE_MAX, outsiderTurn = setting('bystanders') && otherCanTalk();
+  if (!quiet && !outsiderTurn) return;
+  const near = (o, d = 16) => o && Math.abs(o.z - player.z) < d;
+  const friends = [], others = [];
+  for (const r of runners) if (r !== player && !r.gone && near(r)) friends.push(() => bubble(r, L(r.inBrawl ? 'brawl' : 'chase'), 1.2));
+  if (setting('bystanders')) {
+    for (const n of world.npcs) if (near(n)) others.push(() => bubble(n, L(n.role === 'shop' ? 'shopkeeper' : n.female ? 'bystanderF' : 'bystander'), 1.8, 2.5));
+    for (const o of obstacles) if (o.root && near(o) && (o.kind === 'thela' || o.kind === 'walker' || isVehicle(o))) others.push(() => bubble(o, wordOf(o), 1.3, o.vehicle ? 2.9 : 2));
+  }
+  const shuffle = a => a.sort(() => Math.random() - 0.5);
+  if (outsiderTurn && others.length) { // people on the road get their own turn every 3–6 s
+    const before = lastLineAt;
+    for (const f of shuffle(others).slice(0, 4)) { f(); if (lastLineAt !== before) { otherTalked(); return; } }
+  }
+  if (!quiet) return;
+  // outsiders get every other turn when there are any around; friends otherwise
+  const order = Math.random() < 0.5 ? [...shuffle(others), ...shuffle(friends)] : [...shuffle(friends), ...shuffle(others)];
+  const before = lastLineAt;
+  for (const f of order.slice(0, 6)) { f(); if (lastLineAt !== before) return; }
+  if (!player.caught) bubble(player, L(player.inBrawl ? 'brawl' : 'chase'), 1.2); // nobody near: you shout yourself
+  if (lastLineAt === before) lastLineAt = performance.now() - SILENCE_MAX + 800; // everything is used up: try again soon
+}
 function otherSay(o, text, life, yOff) { // text can be a function, so a line is only used up when it is really said
   if (!otherCanTalk()) return; const t = typeof text === 'function' ? text() : text; if (!t) return; otherTalked(); say(o, t, life, yOff);
 }
@@ -793,6 +823,8 @@ function startBrawl() {
   for (const r of act) if (Math.random() < 0.85) setTimeout(() => brawl && talk(r, 'brawl', 0.9), rand(100, 900));
 }
 function onBrawlStart() {
+  if (setting('bystanders')) for (const n of world.npcs) if (Math.abs(n.z - player.z) < 25 && Math.random() < 0.5) // the crowd joins in
+    setTimeout(() => brawl && bubble(n, L(n.female ? 'bystanderF' : n.role === 'shop' ? 'shopkeeper' : 'bystander'), 1.6, 2.5), rand(400, 2500));
   showBanner('মারপিট! 👊 ধিসুম ধিসুম!', 'সবাই ১০ সেকেন্ড মারপিট — মার বোতাম চাপো!', 2.5, false);
   sfx.whistle(); setTimeout(() => sfx.kick(), 300); setTimeout(() => sfx.slap(), 500);
   brawlCloud.g.visible = true;
@@ -963,7 +995,7 @@ function updateRunner(r, dt) {
   }
   r.talkT -= dt;
   if (r.talkT < 0) { // friends keep shouting: every 1–2.2 s while chasing, faster in a brawl
-    r.talkT = r.inBrawl ? rand(0.6, 1.3) : rand(1.0, 2.2);
+    r.talkT = r.inBrawl ? rand(0.6, 1.3) : rand(2.0, 3.5); // leaves room for the people on the road
     if (!r.human && Math.abs(r.z - player.z) < 25) talk(r, r.inBrawl ? 'brawl' : 'chase', 1.0);
   }
 }
@@ -985,6 +1017,8 @@ function brawlRunner(r, dt, inp) { // everyone circles in the dust cloud, hittin
   if (inp.jump && r.y <= 0.001) r.vy = JUMP_V * 0.7;
   if (!r.human && r.cd <= 0) inp.attack = true;
   if (inp.attack && r.cd <= 0) doAttack(r);
+  r.talkT -= dt; // in a fight everyone shouts, players' runners too
+  if (r.talkT < 0) { r.talkT = rand(0.9, 1.8); if (r !== player || Math.random() < 0.5) talk(r, 'brawl', 0.9); }
 }
 function caughtRunner(r, dt) { // walk to the punishment line-up in front of the Superintendent
   const F = track.finish, half = Math.min(4, track.half(F) - 0.8);
@@ -1132,9 +1166,9 @@ function updateBystanders(dt) {
     n.m.armL.rotation.x = near ? Math.sin(time * 8 + n.phase) * 0.5 : 0;
     n.talkT -= dt;
     if (setting('bystanders') && near && n.talkT < 0 && bystanderT < 0 && state === 'playing' && otherCanTalk()) {
-      n.talkT = rand(16, 30); // bystanders share the race's 8–10 lines
+      n.talkT = rand(8, 15);
       const t = L(n.role === 'shop' ? 'shopkeeper' : n.female ? 'bystanderF' : 'bystander');
-      if (t) { bystanderT = rand(5, 9); otherTalked(); bubble(n, t, 1.8, 2.5); }
+      if (t) { bystanderT = rand(2.5, 4.5); otherTalked(); bubble(n, t, 1.8, 2.5); }
     }
   }
 }
@@ -1166,7 +1200,7 @@ function resetRace() {
   world.reset();
   const dbgS = +new URLSearchParams(location.search).get('z') || 0; // debug: ?z=600 starts further along
   runners.forEach(r => { r.reset(); r.z = dbgS + r.startZ; r.ai.tx = r.x; animRunner(r, 0); });
-  othersLeft = 8 + ((Math.random() * 3) | 0); othersNextT = rand(5, 8); crawlHinted = false; // other people: 8–10 lines a race
+  othersLeft = 999; othersNextT = rand(3, 5); crawlHinted = false; lastLineAt = performance.now(); // other people: a line every 3–6 s at most
   resetLines(); // every line can be said again (max 3 times a race)
   nextSpawnS = dbgS + 34; nextPickupS = dbgS + 18; raceTime = 0; finishOrder = []; dogTime = 0; shake = 0; endTimer = -1;
   brawl = null; brawlCloud.g.visible = false;
@@ -1632,6 +1666,7 @@ function frame(now) {
   if (live) { world.animate(dt, player.z); sky.update(dt, camera.position, () => { if (state === 'playing' && !menuOpen) sfx.thunder(); }); }
   if (state === 'countdown' || state === 'playing') updateHUD(dt);
   updateBystanders(dt);
+  updateChatter();
   updateLabels(live ? dt : 0);
   renderer.render(scene, camera);
 }

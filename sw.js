@@ -2,7 +2,7 @@
 // Everything the game needs is cached on the first visit (voice clips included). Files are served from the cache
 // straight away and refreshed in the background, so a new version shows up on the next launch.
 // Bump VERSION when files are removed or renamed, to clear out the old cache.
-const VERSION = 'buddyrace-v12';
+const VERSION = 'buddyrace-v15';
 const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'noslangs.comment.json', 'slangs.comment.json', 'texts.json', 'css/style.css', 'vendor/three.module.js',
   'js/main.js', 'js/audio.js', 'js/input.js', 'js/intro.js', 'js/levels.js', 'js/models.js', 'js/net.js',

@@ -37,19 +37,22 @@ export const pickLine = list => {
   const t = pickA(ok.filter(x => u(x).n === least));
   used.set(t, { n: u(t).n + 1, t: now }); return t;
 };
-// Level-specific lines (levelSpeceficFriends / levelSpeceficOutsider): twice in the first part of the race
-// (the first quarter) and once around the middle (40–60%), nowhere else.
-const LEVEL_BUDGET = { begin: 2, mid: 1 };
+// Level-specific lines, only at the start (first quarter) and around the middle (40–60%) of the race, nowhere else:
+//   levelSpeceficFriends:  2 at the start (the first as the race begins) + 1 in the middle
+//   levelSpeceficOutsider: 1 at the start + 1 in the middle
+const LEVEL_BUDGET = { friends: { begin: 2, mid: 1 }, outsider: { begin: 1, mid: 1 } };
 let levelLeft = {};
 const section = p => (p < 0.25 ? 'begin' : p >= 0.4 && p <= 0.6 ? 'mid' : '');
-export function resetLines() { used.clear(); levelLeft = { friends: { ...LEVEL_BUDGET }, outsider: { ...LEVEL_BUDGET } }; }
+export function resetLines() { used.clear(); levelLeft = { friends: { ...LEVEL_BUDGET.friends }, outsider: { ...LEVEL_BUDGET.outsider } }; }
 resetLines();
 function levelPick(who, list, prog) {
   const sec = section(prog), left = levelLeft[who];
   if (!list.length || !sec || !left || left[sec] <= 0) return '';
-  const t = pickLine(list); if (t) left[sec]--;
+  const t = pickLine(list); if (t) { left[sec]--; levelSaid.add(t); }
   return t;
 }
+const levelSaid = new Set();
+export const isLevelLine = t => levelSaid.has(t); // level lines jump the voice queue so they are always heard
 const levelList = (key, slang, n) => { for (const F of fileFor(slang)) { const a = arr((F[key] || {})['l' + n]); if (a.length) return a; } return []; };
 // the level's friends' line shouted as the race starts (one of the two at the beginning)
 export const levelLine = (n, slang) => levelPick('friends', levelList('levelSpeceficFriends', slang, n), 0);
@@ -67,8 +70,8 @@ export function line(cat, slang, story, levelNo, prog = 0) {
   const list = key => { for (const F of files) { const a = arr(F[key]); if (a.length) return a; } return []; }; // the file in use; if its list is empty, the other file's
   const lvl = key => { for (const F of files) { const a = arr((F[key] || {})[lk]); if (a.length) return a; } return []; };
   const lf = lvl('levelSpeceficFriends'), lo = lvl('levelSpeceficOutsider');
-  if ((cat === 'chase' || cat === 'brawl') && Math.random() < 0.5) { const t = levelPick('friends', lf, prog); if (t) return t; }
-  if ((cat === 'bystander' || cat === 'bystanderF' || cat === 'walker') && Math.random() < 0.5) { const t = levelPick('outsider', lo, prog); if (t) return t; }
+  if (cat === 'chase' || cat === 'brawl') { const t = levelPick('friends', lf, prog); if (t) return t; }
+  if (cat === 'bystander' || cat === 'bystanderF' || cat === 'walker') { const t = levelPick('outsider', lo, prog); if (t) return t; }
   return pickLine(list(k));
 }
 

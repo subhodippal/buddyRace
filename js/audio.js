@@ -192,16 +192,19 @@ function loadBank() {
   bank = {};
   // index.json lists every clip: { f: 'slang/friendChase/03.mp3', t: line, v: voice }. The folders mirror the comment files.
   fetch('audio/voice/index.json').then(r => r.ok ? r.json() : {}).then(j => {
-    const b = {};
-    for (const c of j.clips || []) (b[c.v] ||= {})[c.t] = c.f;
+    const b = { any: {} };
+    for (const c of j.clips || []) { (b[c.v] ||= {})[c.t] = c.f; b.any[c.t] ||= c.f; }
     bank = b;
   }).catch(() => {});
 }
 function clipFor(text, voice) { // -> Promise<AudioBuffer|null>, or null when there is no clip for this line
   const k = voiceKey(text);
   if (!k || !bank) return null;
-  if (!bank[voice] || !bank[voice][k]) return null;
-  const url = `audio/voice/${bank[voice][k]}`;
+  // the clip in the speaker's own voice; if the line was recorded for another voice (a female bystander saying a
+  // level line, a female shopkeeper…), that recording, so every line in the comment files is heard
+  const f = (bank[voice] && bank[voice][k]) || (bank.any && bank.any[k]);
+  if (!f) return null;
+  const url = `audio/voice/${f}`;
   if (!clipCache.has(url)) clipCache.set(url, fetch(url).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).catch(() => null));
   return clipCache.get(url);
 }
